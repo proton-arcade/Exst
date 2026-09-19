@@ -3,18 +3,40 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111216" />
     <title>Game folder — Exst Arcade</title>
     <meta
       name="description"
-      content="A folder page generated from a plain text folder file."
+      content="A game collection from the Exst Arcade library."
     />
-    <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Exst Arcade" />
+    <meta property="og:title" content="Game folder — Exst Arcade" />
+    <meta
+      property="og:description"
+      content="A handpicked collection from the Exst Arcade library."
+    />
+    <link
+      rel="icon"
+      href="assets/images/favicon.svg"
+      type="image/svg+xml"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="assets/images/apple-touch-icon.png"
+    />
     <link rel="stylesheet" href="assets/css/styles.css" />
     <link rel="stylesheet" href="assets/css/arcade.css" />
   </head>
   <body class="folder-page">
+    <noscript>
+      <p style="padding: 1rem; text-align: center">
+        This collection page needs JavaScript. Please enable JavaScript and
+        reload this page.
+      </p>
+    </noscript>
     <header class="site-header compact">
-      <a class="brand" href="index.html"
+      <a class="brand" href="../index.html"
         ><span class="brand-mark">exst.</span
         ><span
           ><strong>Exst Arcade</strong
@@ -22,8 +44,8 @@
         ></a
       >
       <nav class="top-nav">
-        <a href="index.html#collections">All folders</a
-        ><a href="index.html#games">All games</a>
+        <a href="../index.html#collections">All folders</a
+        ><a href="../index.html#games">All games</a>
       </nav>
       <label class="open-mode"
         ><span>Open games</span
@@ -36,7 +58,7 @@
     </header>
     <main>
       <section class="folder-hero" id="folderHero">
-        <a class="back-chip" href="index.html">← Back to arcade</a>
+        <a class="back-chip" href="../index.html">← Back to arcade</a>
         <p class="eyebrow">Folder</p>
         <h1 id="folderTitle">Loading folder…</h1>
         <p id="folderDescription"></p>
@@ -49,6 +71,8 @@
         <div id="folderGameGrid" class="game-grid" aria-live="polite"></div>
       </section>
     </main>
+    <script src="data/games.js"></script>
+    <script src="data/folders.js"></script>
     <script src="assets/js/config-loader.js"></script>
     <script src="assets/js/folder.js"></script>
   </body>

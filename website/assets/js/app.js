@@ -1,8 +1,9 @@
-/* Discovery dashboard. Game catalog stays editable in data/games.txt. */
+/* Discovery dashboard. The editable catalog lives in website/data/games.js. */
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
   const escape = ExstArcade.escapeHtml;
+  const asset = ExstArcade.assetUrl;
   function read(key, fallback) {
     try {
       return JSON.parse(localStorage.getItem(key)) ?? fallback;
@@ -35,7 +36,7 @@
       id: "neon-drift",
       title: "Neon Drift",
       genre: "RACING",
-      image: "assets/images/neon-drift-hero.webp",
+      image: asset("assets/images/neon-drift-hero.webp"),
       description:
         "Own the night. Chase the rush.<br>The city is your playground.",
       alt: "Silver sports car on a neon-lit city street",
@@ -44,7 +45,7 @@
       id: "cosmic-escape",
       title: "Cosmic Escape",
       genre: "ADVENTURE",
-      image: "assets/images/cosmic-escape.webp",
+      image: asset("assets/images/cosmic-escape.webp"),
       description: "A universe of possibility.<br>One mission: keep flying.",
       alt: "Spaceship navigating a purple asteroid belt",
     },
@@ -52,7 +53,7 @@
       id: "brick-breaker",
       title: "Brick Breaker",
       genre: "ARCADE",
-      image: "assets/images/brick-breaker.webp",
+      image: asset("assets/images/brick-breaker.webp"),
       description:
         "A classic, with a little extra glow.<br>Make every bounce count.",
       alt: "Glowing arcade bricks in blue and coral",
@@ -86,7 +87,7 @@
     if (!isAvailable(game)) {
       showInfo(
         "This game needs its files",
-        `<p>${escape(game.title)} is a starter entry in your editable library. Its playable build hasn’t been added yet.</p><p>Add your licensed game files at <code>${escape(game.path)}</code>, then set <code>available=true</code> in <code>data/games.txt</code>.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original ${icon("arrow-right")}</button>`,
+        `<p>${escape(game.title)} is a starter entry in your editable library. Its playable build hasn’t been added yet.</p><p>Put your licensed game files at <code>${escape(asset(game.path))}</code>, then remove the <code>available=false</code> line from its entry in <code>website/data/games.js</code>.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original ${icon("arrow-right")}</button>`,
       );
       $("tryOriginal").onclick = () => {
         $("infoDialog").close();
@@ -112,7 +113,7 @@
         .slice(0, 2);
     let badge = available ? game.badge : "SETUP NEEDED";
     const best = read(`exst-best-${game.id}`, 0);
-    return `<article class="arcade-game-card col-md-4"><div class="game-cover"><a href="${escape(ExstArcade.gameUrl(game))}" data-play="${escape(game.id)}" aria-label="Play ${escape(game.title)}"><img src="${escape(game.icon)}" alt="${escape(game.title)} game artwork" loading="lazy"><span class="cover-play">${icon("play")}</span></a>${badge ? `<span class="game-badge ${badge === "NEW" ? "new" : ""}">${icon(badge === "HOT" ? "flame" : badge === "NEW" ? "zap" : "star")}${escape(badge)}</span>` : ""}<button class="favorite-button ${saved ? "saved" : ""}" data-favorite="${escape(game.id)}" aria-label="${saved ? "Remove" : "Add"} ${escape(game.title)} ${saved ? "from" : "to"} favorites" aria-pressed="${saved}">${icon("heart")}</button></div><div class="card-body"><div class="card-title-row"><h3><a href="${escape(ExstArcade.gameUrl(game))}" data-play="${escape(game.id)}">${escape(game.title)}</a></h3><span class="card-rating" title="${best ? "Your best score" : "Free to play"}">${icon(best ? "trophy" : "zap")}${best ? escape(best) : "Free"}</span></div><p>${escape(game.description)}</p><div class="card-bottom"><span class="card-tags">${tags.map((t) => `<span>${escape(t.charAt(0).toUpperCase() + t.slice(1))}</span>`).join("")}</span><a class="card-play" href="${escape(ExstArcade.gameUrl(game))}" data-play="${escape(game.id)}">${available ? "Play now" : "Set up"} ${icon("arrow-up-right")}</a></div></div></article>`;
+    return `<article class="arcade-game-card col-md-4"><div class="game-cover"><a href="${escape(ExstArcade.gameUrl(game))}" data-play="${escape(game.id)}" aria-label="Play ${escape(game.title)}"><img src="${escape(asset(game.icon))}" alt="${escape(game.title)} game artwork" loading="lazy" decoding="async"><span class="cover-play">${icon("play")}</span></a>${badge ? `<span class="game-badge ${badge === "NEW" ? "new" : ""}">${icon(badge === "HOT" ? "flame" : badge === "NEW" ? "zap" : "star")}${escape(badge)}</span>` : ""}<button class="favorite-button ${saved ? "saved" : ""}" data-favorite="${escape(game.id)}" aria-label="${saved ? "Remove" : "Add"} ${escape(game.title)} ${saved ? "from" : "to"} favorites" aria-pressed="${saved}">${icon("heart")}</button></div><div class="card-body"><div class="card-title-row"><h3><a href="${escape(ExstArcade.gameUrl(game))}" data-play="${escape(game.id)}">${escape(game.title)}</a></h3><span class="card-rating" title="${best ? "Your best score" : "Free to play"}">${icon(best ? "trophy" : "zap")}${best ? escape(best) : "Free"}</span></div><p>${escape(game.description)}</p><div class="card-bottom"><span class="card-tags">${tags.map((t) => `<span>${escape(t.charAt(0).toUpperCase() + t.slice(1))}</span>`).join("")}</span><a class="card-play" href="${escape(ExstArcade.gameUrl(game))}" data-play="${escape(game.id)}">${available ? "Play now" : "Set up"} ${icon("arrow-up-right")}</a></div></div></article>`;
   }
   function render() {
     if (!data) return;
@@ -170,10 +171,8 @@
     $("viewAll").hidden = view === "all";
     document.querySelectorAll("#mainNav [data-view]").forEach((b) => {
       b.classList.toggle("active", b.dataset.view === view);
-      b.setAttribute(
-        "aria-current",
-        b.dataset.view === view ? "page" : "false",
-      );
+      if (b.dataset.view === view) b.setAttribute("aria-current", "page");
+      else b.removeAttribute("aria-current");
     });
     document
       .querySelectorAll("[data-category]")
@@ -229,7 +228,7 @@
       .forEach((img) => {
         img.onerror = () => {
           img.onerror = null;
-          img.src = "assets/images/default-game.svg";
+          img.src = asset("assets/images/default-game.svg");
         };
       });
   }
@@ -241,11 +240,16 @@
     const params = new URLSearchParams();
     if (view !== "discover") params.set("view", view);
     if (category !== "All") params.set("category", category);
-    history.pushState(
-      {},
-      "",
-      location.pathname + (params.size ? "?" + params : ""),
-    );
+    try {
+      // Some browsers refuse pushState on file://; state still works without it.
+      history.pushState(
+        {},
+        "",
+        location.pathname + (params.size ? "?" + params : ""),
+      );
+    } catch {
+      /* View state is still tracked in memory. */
+    }
     $("sidebar").classList.remove("open");
     $("menuToggle").setAttribute("aria-expanded", "false");
     render();
@@ -363,7 +367,7 @@
     if (!data) return;
     showInfo(
       "Your game collections",
-      `<p>Handpicked folders from your editable arcade library.</p><div class="folder-links">${data.folders.map((folder) => `<a href="folder.html?id=${encodeURIComponent(folder.id)}"><span>${icon("folder")} ${escape(folder.title)}</span><small>${folder.games.length} games ${icon("arrow-right")}</small></a>`).join("")}</div>`,
+      `<p>Handpicked folders from your editable arcade library.</p><div class="folder-links">${data.folders.map((folder) => `<a href="${escape(asset(`folder.html?id=${encodeURIComponent(folder.id)}`))}"><span>${icon("folder")} ${escape(folder.title)}</span><small>${folder.games.length} games ${icon("arrow-right")}</small></a>`).join("")}</div>`,
     );
   };
   $("newsButton").onclick = () =>
@@ -379,7 +383,7 @@
   $("aboutButton").onclick = () =>
     showInfo(
       "A little less scrolling.",
-      `<p>A little more playing. Exst Arcade is a free, lightweight home for browser games — no accounts, subscriptions, or downloads required.</p><h3>Made for a quick escape</h3><p>Six original minigames are included. Keep building your collection by editing <code>data/games.txt</code> and adding your own game files.</p><p>Based on the <a href="https://github.com/learning-zone/website-templates/tree/master/hybrid-bootstrap-admin-template" target="_blank" rel="noopener">Hybrid Bootstrap Admin Template</a> by <a href="https://webthemez.com/" target="_blank" rel="noopener">WebThemez</a>, licensed under Creative Commons Attribution 3.0. Game artwork is AI-generated.</p>`,
+      `<p>A little more playing. Exst Arcade is a free, lightweight home for browser games — no accounts, subscriptions, or downloads required.</p><h3>Made for a quick escape</h3><p>Six original minigames are included. Keep building your collection by editing <code>website/data/games.js</code> and dropping your game files into <code>website/games/</code>.</p><p>Based on the <a href="https://github.com/learning-zone/website-templates/tree/master/hybrid-bootstrap-admin-template" target="_blank" rel="noopener">Hybrid Bootstrap Admin Template</a> by <a href="https://webthemez.com/" target="_blank" rel="noopener">WebThemez</a>, licensed under Creative Commons Attribution 3.0. Game artwork is AI-generated.</p>`,
     );
   $("closeDialog").onclick = () => $("infoDialog").close();
   $("infoDialog").addEventListener("click", (e) => {
@@ -430,6 +434,7 @@
     })
     .catch((error) => {
       $("gameGrid").innerHTML =
-        `<div class="empty-state"><h3>The arcade couldn’t load</h3><p>${escape(error.message)}. Please serve this site over HTTP and try again.</p><button class="primary-button" onclick="location.reload()">Try again</button></div>`;
+        `<div class="empty-state"><h3>The arcade couldn’t load</h3><p>${escape(error.message)}. Make sure <code>website/data/games.js</code> and <code>website/data/folders.js</code> are present, then try again.</p><button class="primary-button" id="retryLoad">Try again</button></div>`;
+      $("retryLoad").addEventListener("click", () => location.reload());
     });
 })();

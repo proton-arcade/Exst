@@ -9,12 +9,59 @@
       name="description"
       content="A little escape. A lot of fun. Discover free browser games, collect your favorites, and play instantly at Exst Arcade."
     />
-    <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="assets/vendor/hybrid/bootstrap.css" />
-    <link rel="stylesheet" href="assets/vendor/hybrid/custom-styles.css" />
-    <link rel="stylesheet" href="assets/css/arcade.css" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Exst Arcade" />
+    <meta
+      property="og:title"
+      content="Exst Arcade — Your next favorite game awaits"
+    />
+    <meta
+      property="og:description"
+      content="A little escape. A lot of fun. Free browser games, your favorites, instant play — no downloads, no sign-up."
+    />
+    <meta
+      property="og:image"
+      content="website/assets/images/neon-drift-hero.webp"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Exst Arcade — Your next favorite game awaits"
+    />
+    <meta
+      name="twitter:description"
+      content="A little escape. A lot of fun. Free browser games, your favorites, instant play — no downloads, no sign-up."
+    />
+    <meta
+      name="twitter:image"
+      content="website/assets/images/neon-drift-hero.webp"
+    />
+    <link
+      rel="icon"
+      href="website/assets/images/favicon.svg"
+      type="image/svg+xml"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="website/assets/images/apple-touch-icon.png"
+    />
+    <link
+      rel="stylesheet"
+      href="website/assets/vendor/hybrid/bootstrap.css"
+    />
+    <link
+      rel="stylesheet"
+      href="website/assets/vendor/hybrid/custom-styles.css"
+    />
+    <link rel="stylesheet" href="website/assets/css/arcade.css" />
   </head>
   <body>
+    <noscript>
+      <p style="padding: 1rem; text-align: center">
+        Exst Arcade needs JavaScript to load its game library. Please enable
+        JavaScript and reload this page.
+      </p>
+    </noscript>
     <a class="skip-link" href="#page-wrapper">Skip to games</a>
     <div id="wrapper">
       <aside
@@ -147,8 +194,10 @@
                 <article class="hero-feature">
                   <img
                     class="hero-art"
-                    src="assets/images/neon-drift-hero.webp"
+                    src="website/assets/images/neon-drift-hero.webp"
                     alt="Silver sports car on a neon-lit city street"
+                    fetchpriority="high"
+                    decoding="async"
                   />
                   <div class="hero-shade"></div>
                   <div class="hero-copy">
@@ -335,8 +384,7 @@
                     <strong>Arcade after hours</strong
                     ><span>Chase that new high score.</span>
                   </div>
-                  <i data-icon="arrow-up-right"></i>
-                </button>
+                  <i data-icon="arrow-up-right"></i></button>
               </div>
             </section>
             <footer class="arcade-footer">
@@ -368,8 +416,10 @@
       <div id="dialogContent"></div>
     </dialog>
     <div class="toast" id="toast" role="status"></div>
-    <script src="assets/js/icons.js"></script>
-    <script src="assets/js/config-loader.js"></script>
-    <script src="assets/js/app.js"></script>
+    <script src="website/data/games.js"></script>
+    <script src="website/data/folders.js"></script>
+    <script src="website/assets/js/icons.js"></script>
+    <script src="website/assets/js/config-loader.js"></script>
+    <script src="website/assets/js/app.js"></script>
   </body>
 </html>

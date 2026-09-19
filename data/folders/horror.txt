@@ -1,6 +1,0 @@
-[folder]
-id=horror
-title=Night shift & maze scares
-description=Games with tension, dark corners, and that one hallway you probably should not walk down.
-icon=assets/images/folder.svg
-games=fnaf, backrooms

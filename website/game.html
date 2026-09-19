@@ -3,25 +3,47 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111216" />
     <title>Play — Exst Arcade</title>
     <meta
       name="description"
       content="Game player page with a back arrow and full-screen style frame."
     />
-    <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Exst Arcade" />
+    <meta property="og:title" content="Play — Exst Arcade" />
+    <meta
+      property="og:description"
+      content="Press play. The game opens right here."
+    />
+    <link
+      rel="icon"
+      href="assets/images/favicon.svg"
+      type="image/svg+xml"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="assets/images/apple-touch-icon.png"
+    />
     <link rel="stylesheet" href="assets/css/arcade.css" />
   </head>
   <body class="player-body">
+    <noscript>
+      <p style="padding: 1rem; text-align: center">
+        The game player needs JavaScript. Please enable JavaScript and reload
+        this page.
+      </p>
+    </noscript>
     <header class="player-bar">
       <a
         id="backLink"
         class="back-button"
-        href="index.html"
+        href="../index.html"
         aria-label="Back to arcade"
         >←</a
       >
       <div class="player-title">
-        <strong id="gameTitle">Loading game…</strong><span id="gameMeta"></span>
+        <h1 id="gameTitle">Loading game…</h1><span id="gameMeta"></span>
       </div>
       <div class="player-actions">
         <button id="fullscreenGame" type="button">Fullscreen</button>
@@ -39,12 +61,16 @@
       <section id="gameFallback" class="frame-fallback" hidden>
         <h1>This game needs its files</h1>
         <p>
-          This page was generated from the text config. Put the real HTML file
-          at the path shown below, or edit <code>data/games.txt</code>.
+          This entry is configured, but its playable build is not in place
+          yet. Put the real game files at the path shown below (relative to
+          the <code>website/</code> folder), or update the entry in
+          <code>data/games.js</code>.
         </p>
         <code id="missingPath"></code>
       </section>
     </main>
+    <script src="data/games.js"></script>
+    <script src="data/folders.js"></script>
     <script src="assets/js/config-loader.js"></script>
     <script src="assets/js/game.js"></script>
   </body>

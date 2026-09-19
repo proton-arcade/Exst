@@ -1522,9 +1522,11 @@ button:hover {
   flex-direction: column;
   gap: 4px;
 }
-.player-title strong {
+.player-title h1 {
+  margin: 0;
   font-family: var(--heading);
   font-size: 17px;
+  line-height: 1.2;
 }
 .player-title > span {
   font-size: 10px;
@@ -1988,7 +1990,7 @@ button:hover {
     font-size: 9px;
     padding: 7px;
   }
-  .player-title strong {
+  .player-title h1 {
     font-size: 14px;
   }
 }

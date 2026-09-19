@@ -1,6 +1,0 @@
-[folder]
-id=arcade
-title=Fast arcade rounds
-description=Quick games that make sense when someone just wants to jump in for a few minutes.
-icon=assets/images/paper-io-2.svg
-games=neon-drift, neon-snake, 2048, cosmic-escape, memory-match, brick-breaker, paper-io-2
