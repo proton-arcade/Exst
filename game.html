@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Play — Exst Arcade</title>
+  <meta name="description" content="Game player page with a back arrow and full-screen style frame." />
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body class="player-body">
+  <header class="player-bar">
+    <a id="backLink" class="back-button" href="index.html" aria-label="Back to arcade">←</a>
+    <div class="player-title"><strong id="gameTitle">Loading game…</strong><span id="gameMeta"></span></div>
+    <div class="player-actions">
+      <button id="reloadGame" type="button">Reload</button>
+      <a id="openDirect" target="_blank" rel="noopener">Open new tab</a>
+    </div>
+  </header>
+  <main class="game-shell">
+    <iframe id="gameFrame" title="Game frame" allow="fullscreen; gamepad; autoplay; clipboard-read; clipboard-write" allowfullscreen></iframe>
+    <section id="gameFallback" class="frame-fallback" hidden>
+      <h1>Game file not found yet</h1>
+      <p>This page was generated from the text config. Put the real HTML file at the path shown below, or edit <code>data/games.txt</code>.</p>
+      <code id="missingPath"></code>
+    </section>
+  </main>
+  <script src="assets/js/config-loader.js"></script>
+  <script src="assets/js/game.js"></script>
+</body>
+</html>

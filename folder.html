@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Game folder — Exst Arcade</title>
+  <meta name="description" content="A folder page generated from a plain text folder file." />
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <header class="site-header compact">
+    <a class="brand" href="index.html"><span class="brand-mark">EX</span><span><strong>Exst Arcade</strong><small>folder shelf</small></span></a>
+    <nav class="top-nav"><a href="index.html#collections">All folders</a><a href="index.html#games">All games</a></nav>
+    <label class="open-mode"><span>Open games</span><select id="openMode"><option value="page">game page</option><option value="same">replace tab</option><option value="new">new tab</option></select></label>
+  </header>
+  <main>
+    <section class="folder-hero" id="folderHero">
+      <a class="back-chip" href="index.html">← Back to arcade</a>
+      <p class="eyebrow">Folder</p>
+      <h1 id="folderTitle">Loading folder…</h1>
+      <p id="folderDescription"></p>
+    </section>
+    <section class="section-block full-list">
+      <div class="section-title-row"><h2>Games in this folder</h2><span id="folderCount" class="count-pill"></span></div>
+      <div id="folderGameGrid" class="game-grid" aria-live="polite"></div>
+    </section>
+  </main>
+  <script src="assets/js/config-loader.js"></script>
+  <script src="assets/js/folder.js"></script>
+</body>
+</html>

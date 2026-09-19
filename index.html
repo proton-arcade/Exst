@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Exst Arcade — quick-play browser games</title>
+  <meta name="description" content="A fast, editable arcade shelf powered by plain text files. Add a game by copying one block and changing the values." />
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Exst Arcade home">
+      <span class="brand-mark">EX</span>
+      <span><strong>Exst Arcade</strong><small>copy · tweak · play</small></span>
+    </a>
+    <nav class="top-nav" aria-label="Primary navigation">
+      <a href="#games">Games</a>
+      <a href="#collections">Folders</a>
+      <a href="README.md">How to add</a>
+    </nav>
+    <label class="open-mode" title="Choose how game buttons open">
+      <span>Open games</span>
+      <select id="openMode">
+        <option value="page">game page</option>
+        <option value="same">replace tab</option>
+        <option value="new">new tab</option>
+      </select>
+    </label>
+  </header>
+
+  <main>
+    <section class="hero-strip" aria-labelledby="pageTitle">
+      <div class="hero-copy">
+        <p class="eyebrow">Plain text powered arcade</p>
+        <h1 id="pageTitle">Drop in a game, paste one block, and the shelf updates itself.</h1>
+        <p>Games and folders are loaded from files in <code>data/</code>. No database, no build step, no template maze — just IDs, paths, icons, and folder lists you can edit.</p>
+      </div>
+      <aside class="hero-panel" aria-label="Quick instructions">
+        <b>Adding a game is this simple:</b>
+        <pre>[game]
+id=my-game
+title=My Game
+path=games/my-game.html
+icon=assets/images/my-game.svg</pre>
+      </aside>
+    </section>
+
+    <section class="search-board" aria-label="Find games">
+      <div>
+        <label for="searchInput">Search the arcade</label>
+        <input id="searchInput" type="search" placeholder="Try minecraft, horror, paper, wasm…" autocomplete="off" />
+      </div>
+      <div class="stat-pack" id="stats" aria-live="polite"></div>
+    </section>
+
+    <section id="collections" class="section-block uneven-top">
+      <div class="section-title-row">
+        <div>
+          <p class="eyebrow">Folders</p>
+          <h2>Hand-picked shelves from text files</h2>
+        </div>
+        <a href="data/folders/index.txt" class="tiny-link">edit folder index</a>
+      </div>
+      <div id="folderGrid" class="folder-grid" aria-live="polite"></div>
+    </section>
+
+    <section id="featured" class="section-block">
+      <div class="section-title-row crooked">
+        <div>
+          <p class="eyebrow">Hot row</p>
+          <h2>Featured right now</h2>
+        </div>
+      </div>
+      <div id="featuredRail" class="game-rail" aria-live="polite"></div>
+    </section>
+
+    <section id="games" class="section-block full-list">
+      <div class="section-title-row">
+        <div>
+          <p class="eyebrow">All games</p>
+          <h2>The whole cabinet</h2>
+        </div>
+        <a href="data/games.txt" class="tiny-link">edit games.txt</a>
+      </div>
+      <div id="gameGrid" class="game-grid" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>Exst Arcade</strong> is intentionally built from readable files. Keep your real game files in <code>games/</code>, icons in <code>assets/images/</code>, and IDs in folder text files.</p>
+    <p class="foot-note">Tip: if a game is blocked inside the frame, use “replace tab” or “new tab”.</p>
+  </footer>
+
+  <script src="assets/js/config-loader.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

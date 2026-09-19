@@ -1,0 +1,6 @@
+[folder]
+id=featured
+title=Featured games
+description=The first shelf people see: a mix of ready-to-play HTML games and configured launcher entries.
+icon=assets/images/folder-star.svg
+games=fnaf, backrooms, paper-io-2, 1.12.2, 1.12.2-wasm

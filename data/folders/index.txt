@@ -1,0 +1,6 @@
+# Add a new folder by creating data/folders/your-folder.txt
+# then put the file name on a new line below.
+featured.txt
+horror.txt
+minecraft.txt
+arcade.txt
