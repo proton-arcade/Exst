@@ -1,2 +1,7 @@
 node_modules/
 .test-artifacts/
+
+# Large game drop-ins: unzipped Minecraft clients and game archives are
+# intentionally kept out of version control.
+website/mc/
+*.zip

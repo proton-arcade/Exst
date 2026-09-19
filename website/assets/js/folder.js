@@ -9,7 +9,7 @@ async function bootFolder() {
     : arcade.folders[0];
   if (!folder)
     throw new Error(
-      "This collection was not found. Check its ID in data/folders/.",
+      "This collection was not found. Check its ID in website/data/folders.js.",
     );
   document.title = `${folder.title} — Exst Arcade`;
   document.getElementById("folderTitle").textContent = folder.title;
@@ -29,7 +29,7 @@ async function bootFolder() {
     });
     if (!games.length)
       grid.innerHTML =
-        '<p class="empty-note">This collection is waiting for its first game. Add game IDs in its text file.</p>';
+        '<p class="empty-note">This collection is waiting for its first game. Add its game IDs in website/data/folders.js.</p>';
   }
   renderFolderGames();
   document

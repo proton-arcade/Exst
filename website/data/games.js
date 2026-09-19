@@ -1,4 +1,37 @@
-# Playable Exst originals. Add more games with the same block format.
+/*
+ * Exst Arcade — game catalog (works with or without a web server).
+ *
+ * ADD A GAME (2 steps, ~1 minute):
+ *   1. Put your game in website/games/
+ *        - single file :  website/games/retro-pong.html
+ *        - whole folder:  website/games/retro-pong/index.html
+ *          (just unzip the game straight into a new folder inside games/)
+ *   2. Paste a [game] block below and change the values.
+ *
+ * The game appears in the dashboard, the player, and any folder that lists it.
+ * No restart, no server, no build step — just refresh the page.
+ *
+ * Field notes:
+ *   id          unique key, lowercase (used in URLs)              REQUIRED
+ *   title       name shown on the card                            REQUIRED
+ *   path        game file, relative to website/ (index.html or a
+ *               plain .html file)                                 REQUIRED
+ *   icon        thumbnail, relative to website/ (png/webp/jpg/svg)
+ *   version     small kicker text on the card
+ *   description one or two lines of honest copy for the card
+ *   tags        comma separated. Use Action / Adventure / Racing /
+ *               Puzzle / Arcade so category filters can find it
+ *   featured    true = also considered for the spotlight shelf
+ *   badge       short label such as NEW or HOT (optional)
+ *   available   set available=false while files are still missing.
+ *               Omit it once the game file exists (defaults to true).
+ *   source      where the files came from (optional note)
+ *
+ * Only add games you have the right to run or distribute.
+ * Lines starting with # are comments.
+ */
+window.EXST_GAMES_TEXT = `
+# Playable Exst originals (built in, always ready).
 
 [game]
 id=neon-drift
@@ -10,7 +43,6 @@ description=Own the night. Chase the rush.
 tags=Racing, Arcade
 featured=true
 original=true
-available=true
 badge=HOT
 
 [game]
@@ -23,7 +55,6 @@ description=A fresh glow on an all-time classic.
 tags=Arcade, Action
 featured=true
 original=true
-available=true
 badge=POPULAR
 
 [game]
@@ -36,8 +67,6 @@ description=Easy to learn. Impossible to put down.
 tags=Puzzle, Arcade
 featured=true
 original=true
-available=true
-badge=
 
 [game]
 id=cosmic-escape
@@ -49,7 +78,6 @@ description=Small ship. One very big universe.
 tags=Action, Adventure
 featured=true
 original=true
-available=true
 badge=NEW
 
 [game]
@@ -62,8 +90,6 @@ description=Find your match. Train your brain.
 tags=Puzzle, Arcade
 featured=true
 original=true
-available=true
-badge=
 
 [game]
 id=brick-breaker
@@ -75,12 +101,10 @@ description=Break the bricks. Beat your best.
 tags=Arcade, Action
 featured=true
 original=true
-available=true
 badge=NEW
 
-# Exst Arcade games list
-# Copy a whole [game] block, paste it below, then change the values.
-# Required: id, title, path. Recommended: icon, description, tags.
+# Your own games go here. Copy a block, edit it, done.
+# Keep available=false on a starter entry until the real files are in place.
 
 [game]
 available=false
@@ -118,13 +142,16 @@ tags=arcade, territory, quick play
 featured=true
 source=paper-io-2.htm
 
+# Minecraft client slots. Unzip each client into the matching folder under
+# website/mc/ (for example website/mc/1.12.2/index.html), then remove the
+# available=false line from that entry.
 [game]
 available=false
 id=1.12.2
 title=Latest release
 version=1.12.2-u3
 icon=assets/images/m-logo1.svg
-path=website/mc/1.12.2/index.html
+path=mc/1.12.2/index.html
 description=A configured launcher entry for your 1.12.2 browser client. Drop the files into the matching path to make it playable.
 tags=minecraft, release, java
 featured=true
@@ -137,7 +164,7 @@ id=1.12.2-wasm
 title=Latest release WASM
 version=1.12.2-u3-wasm
 icon=assets/images/m-logo1.svg
-path=website/mc/1.12.2-wasm/index.html
+path=mc/1.12.2-wasm/index.html
 description=The WASM variant of the latest configured client.
 tags=minecraft, wasm, release
 featured=true
@@ -151,7 +178,7 @@ id=1.8.8
 title=Previous release
 version=1.8.8-u53
 icon=assets/images/m-logo2.svg
-path=website/mc/1.8.8/index.html
+path=mc/1.8.8/index.html
 description=A previous release entry wired into the same arcade launcher.
 tags=minecraft, release, classic
 featured=false
@@ -164,7 +191,7 @@ id=1.8.8-wasm
 title=Previous release WASM
 version=1.8.8-u53-wasm
 icon=assets/images/m-logo2.svg
-path=website/mc/1.8.8-wasm/index.html
+path=mc/1.8.8-wasm/index.html
 description=The WASM-GC build for the 1.8.8 line.
 tags=minecraft, wasm, classic
 featured=false
@@ -178,7 +205,7 @@ id=1.5.2
 title=Older release
 version=1.5.2-sp2.01
 icon=assets/images/m-logo11.svg
-path=website/mc/1.5.2/index.html
+path=mc/1.5.2/index.html
 description=Older release entry for the archive shelf.
 tags=minecraft, archive, older
 featured=false
@@ -191,7 +218,7 @@ id=1.2.6
 title=Older release
 version=1.2.6-Alpha
 icon=assets/images/m-logo11.svg
-path=website/mc/1.2.6-Alpha/index.html
+path=mc/1.2.6-Alpha/index.html
 description=Alpha-era archive entry.
 tags=minecraft, alpha, archive
 featured=false
@@ -204,9 +231,10 @@ id=Unknown-Alpha
 title=Older release
 version=Unknown-Alpha
 icon=assets/images/m-logo11.svg
-path=website/mc/Unknown-Alpha/indev.html
+path=mc/Unknown-Alpha/indev.html
 description=Unknown alpha archive entry.
 tags=minecraft, alpha, archive
 featured=false
 bundled=true
 source=Eaglercraft_Unknown-Alpha_Offline.zip
+`;

@@ -5,6 +5,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 const { execFileSync } = require("node:child_process");
+
+const root = path.resolve(__dirname, "..", ".."); // repository root
+
 async function launch() {
   try {
     return await chromium.launch({ headless: true });
@@ -28,6 +31,7 @@ async function launch() {
     });
   }
 }
+
 (async () => {
   const browser = await launch();
   try {
@@ -50,12 +54,16 @@ async function launch() {
       "background-color",
       "rgb(23, 24, 29)",
     );
-    await page.locator('.favorite-button[data-favorite="neon-snake"]').click();
+    await page
+      .locator('.favorite-button[data-favorite="neon-snake"]')
+      .click();
     await expect(page.locator("#favoriteCount")).toHaveText("1");
     await page.locator('[data-view="favorites"]').first().click();
     await expect(page.locator(".arcade-game-card")).toHaveCount(1);
     await page.reload();
-    await expect(page.locator(".arcade-game-card h3")).toHaveText("Neon Snake");
+    await expect(page.locator(".arcade-game-card h3")).toHaveText(
+      "Neon Snake",
+    );
     await page.locator(".favorite-button").click();
     await expect(page.locator(".empty-state")).toBeVisible();
     await page.locator('#mainNav [data-view="discover"]').click();
@@ -94,12 +102,17 @@ async function launch() {
       "✓ Search, categories, sorting, favorites, carousel, preferences and setup states",
     );
     await page.locator('.card-play[data-play="2048"]').click();
-    await page.waitForURL("**/game.html?id=2048");
+    await page.waitForURL("**/website/game.html?id=2048");
     const frame = page.frameLocator("#gameFrame");
     await frame.locator("#startButton").click();
     await expect(frame.locator(".tile")).toHaveCount(16);
     for (let i = 0; i < 6; i++)
-      for (const key of ["ArrowLeft", "ArrowDown", "ArrowRight", "ArrowUp"])
+      for (const key of [
+        "ArrowLeft",
+        "ArrowDown",
+        "ArrowRight",
+        "ArrowUp",
+      ])
         await page.keyboard.press(key);
     assert.ok(Number(await frame.locator("#score").textContent()) > 0);
     await page.locator("#backLink").click();
@@ -115,7 +128,7 @@ async function launch() {
       "memory-match",
       "brick-breaker",
     ]) {
-      await goto("/games/arcade.html?game=" + id);
+      await goto("/website/games/arcade.html?game=" + id);
       await page.locator("#startButton").click();
       await expect(page.locator("#overlay")).toBeHidden();
       await page.locator("#pauseButton").click();
@@ -138,7 +151,7 @@ async function launch() {
       console.log("✓ " + id + " start, controls, pause, resume, restart");
     }
     // Solve Memory Match using only visible card information; verify a real win.
-    await goto("/games/arcade.html?game=memory-match");
+    await goto("/website/games/arcade.html?game=memory-match");
     await page.locator("#startButton").click();
     const symbols = {};
     for (let i = 0; i < 16; i += 2) {
@@ -152,7 +165,8 @@ async function launch() {
     for (const [i, symbol] of Object.entries(symbols))
       (groups[symbol] ??= []).push(i);
     for (const pair of Object.values(groups)) {
-      if (await page.locator(`[data-card="${pair[0]}"]`).isDisabled()) continue;
+      if (await page.locator(`[data-card="${pair[0]}"]`).isDisabled())
+        continue;
       for (const i of pair) await page.locator(`[data-card="${i}"]`).click();
     }
     await expect(page.locator("#overlayTitle")).toHaveText("Nicely played.");
@@ -160,9 +174,9 @@ async function launch() {
     console.log("✓ Memory Match complete win and high score");
     await goto("/");
     await expect(page.locator(".arcade-game-card")).toHaveCount(6);
-    fs.mkdirSync(".test-artifacts", { recursive: true });
+    fs.mkdirSync(path.join(root, ".test-artifacts"), { recursive: true });
     await page.screenshot({
-      path: ".test-artifacts/desktop.png",
+      path: path.join(root, ".test-artifacts/desktop.png"),
       fullPage: true,
     });
     for (const width of [390, 768, 1024, 1440]) {
@@ -177,7 +191,7 @@ async function launch() {
       );
       if (width === 390) {
         await page.screenshot({
-          path: ".test-artifacts/mobile.png",
+          path: path.join(root, ".test-artifacts/mobile.png"),
           fullPage: true,
         });
         await page.locator("#menuToggle").click();
@@ -190,7 +204,9 @@ async function launch() {
     }
     await page.locator("#foldersButton").click();
     await expect(page.locator(".folder-links>a")).toHaveCount(4);
-    await page.locator('.folder-links>a[href="folder.html?id=arcade"]').click();
+    await page
+      .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
+      .click();
     await expect(page.locator("#folderTitle")).toHaveText("Fast arcade rounds");
     await expect(page.locator(".game-card")).toHaveCount(7);
     await page.locator("#openMode").selectOption("new");
@@ -204,16 +220,57 @@ async function launch() {
       "href",
       "folder.html?id=arcade",
     );
-    await goto("/game.html?id=fnaf");
+    await goto("/website/game.html?id=fnaf");
     await expect(page.locator("#gameFallback")).toBeVisible();
     await expect(page.locator(".player-actions")).toBeHidden();
-    await goto("/game.html?id=not-found");
+    await goto("/website/game.html?id=not-found");
+    await expect(page.locator(".frame-fallback h1")).toHaveText(
+      "Game could not load",
+    );
+    await goto("/website/game.html?path=games/fnaf.html");
+    await expect(page.locator("#gameTitle")).toHaveText("Fnaf");
+    await expect(page.locator("#gameFrame")).toBeVisible();
+    await goto("/website/game.html?path=../../index.html");
     await expect(page.locator(".frame-fallback h1")).toHaveText(
       "Game could not load",
     );
     console.log(
       "✓ Configured collections, folder launch modes, missing-game fallbacks",
     );
+
+    // No-server proof: open the site straight from the filesystem.
+    const filePage = await browser.newPage({
+      viewport: { width: 1440, height: 1000 },
+    });
+    const fileErrors = [];
+    filePage.on("pageerror", (e) => fileErrors.push(e.message));
+    await filePage.goto("file://" + path.join(root, "index.html"));
+    await expect(filePage.locator(".arcade-game-card")).toHaveCount(6);
+    await filePage
+      .locator('.card-play[data-play="neon-drift"]')
+      .click();
+    await filePage.waitForURL(/game\.html\?id=neon-drift/);
+    await filePage
+      .frameLocator("#gameFrame")
+      .locator("#startButton")
+      .click();
+    await expect(filePage.frameLocator("#gameFrame").locator("#overlay")).toBeHidden();
+    await filePage.locator("#backLink").click();
+    await filePage.waitForURL(/index\.html/);
+    await expect(filePage.locator(".arcade-game-card")).toHaveCount(6);
+    await filePage.locator("#foldersButton").click();
+    await filePage
+      .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
+      .click();
+    await expect(filePage.locator("#folderTitle")).toHaveText(
+      "Fast arcade rounds",
+    );
+    await filePage.close();
+    assert.deepEqual(fileErrors, [], "file:// JavaScript errors");
+    console.log(
+      "✓ No-server file:// run: dashboard, player and folder all work",
+    );
+
     assert.deepEqual(errors, [], "Browser JavaScript errors");
     assert.deepEqual(broken, [], "Broken local resources");
     console.log(
