@@ -37,6 +37,14 @@ const iconPaths = {
     '<path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
   fullscreen: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>',
+  home: '<path d="M3 11.5 12 3l9 8.5"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M12 11.5V16"/>',
+  add: '<path d="M12 5v14M5 12h14"/>',
+  arrow_back: '<path d="M20 12H4m6 6-6-6 6-6"/>',
+  thumb_up:
+    '<path d="M7 11v9H4v-9h3Zm2 9h6.5a2.5 2.5 0 0 0 2.4-1.8l1.7-6.2a2.5 2.5 0 0 0-2.4-3H12l1-5.5L6 11v9Z"/>',
+  share:
+    '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6m-7.6 6 7.6 3.6"/>',
 };
 function icon(name, cls = "") {
   return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.gamepad}</svg>`;
