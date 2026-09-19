@@ -4,7 +4,7 @@ A static game website that updates itself from editable text files. It is design
 
 ## Main files
 
-- `index.html` — homepage with search, folders, featured games, and all games.
+- `index.html` — homepage with search plus the top 10 most played games and top 10 most played folders (play counts are kept in the browser's local storage).
 - `folder.html?id=folder-id` — generated folder pages.
 - `game.html?id=game-id` — generated game player page with a top-left back arrow and a large iframe.
 - `data/games.txt` — every game lives here.
