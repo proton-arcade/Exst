@@ -14,20 +14,12 @@
   };
   const CATEGORIES = ["All", "Action", "Adventure", "Racing", "Puzzle", "Arcade"];
 
-  function read(key, fallback) {
-    try {
-      return JSON.parse(localStorage.getItem(key)) ?? fallback;
-    } catch {
-      return fallback;
-    }
-  }
-  function save(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      toast("Your browser could not save this preference.");
-    }
-  }
+  // Saving goes through the shared helpers, which report when the browser
+  // blocks storage instead of dropping the write without a word. The single
+  // message the user sees is written where the action happens, so a failure
+  // is never overwritten by a success message.
+  const read = ExstArcade.storageGet;
+  const save = ExstArcade.storageSet;
 
   let favorites = read("exst-favorites", []);
   let recent = read("exst-recent", []);
@@ -108,11 +100,13 @@
     if (!game) return;
     const exists = favorites.includes(id);
     favorites = exists ? favorites.filter((x) => x !== id) : [...favorites, id];
-    save("exst-favorites", favorites);
+    const stored = save("exst-favorites", favorites);
     toast(
-      exists
-        ? `${game.title} removed from My List`
-        : `${game.title} added to My List`,
+      !stored
+        ? `${game.title} is on My List for this visit only — this browser is not saving changes.`
+        : exists
+          ? `${game.title} removed from My List`
+          : `${game.title} added to My List`,
     );
     renderAll();
     if (detailsId) syncDetailsFavorite();
@@ -370,11 +364,20 @@
     $("retryLoad").addEventListener("click", () => location.reload());
   }
 
+  function renderStorageStatus() {
+    const notice = ExstArcade.storageNoticeText();
+    if (!notice) return;
+    const hint = document.querySelector(".pref-block .hint");
+    if (hint)
+      hint.innerHTML = `${escape(notice)} Keyboard tip: press <kbd>/</kbd> to find a game instantly.`;
+  }
+
   function renderCatalogStatus() {
     const host = $("catalogStatus");
     if (!host) return;
     const files = ExstArcade.catalogFiles;
     const problems = (data && data.problems) || [];
+    const storage = ExstArcade.storageNoticeText();
     host.innerHTML =
       `<strong>Catalog:</strong> ${data.games.length} game${
         data.games.length === 1 ? "" : "s"
@@ -388,7 +391,7 @@
               problems.length === 1 ? "" : "s"
             } found</strong> — open the Catalog check notice on Home.`
           : " Your edits show up here as soon as the page is refreshed."
-      }`;
+      }${storage ? ` <strong>${escape(storage)}</strong>` : ""}`;
   }
 
   /* ---------- Details slide-in ---------- */
@@ -602,6 +605,7 @@
       renderHero();
       renderAll();
       renderCatalogNotice(result.problems);
+      renderStorageStatus();
       ExstArcade.bindOpenModeSelect();
       routeFromHash();
       syncHeader();

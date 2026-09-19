@@ -96,6 +96,12 @@ checked** — a half-saved entry never disappears silently:
   Put the game file at the entry's `path` (or point `path` at the file you
   already have) and delete the `available=false` line.
 
+Editing the catalog only ever changes what the site *shows*. Nothing you type
+into the page is written back to disk: favorites, recents, play counts, and
+high scores live in the browser's local storage, so they are per-browser (see
+**Local data and privacy** below). To keep a game for good, put its block in
+`website/data/games.js`.
+
 To try a game without listing it, open
 `website/game.html?path=games/your-game.html` — any game file can be played
 directly.
@@ -174,6 +180,15 @@ resets them. All content is local to the repository — no third-party scripts
 are loaded at runtime. Because the player embeds game files in an iframe,
 only add games you trust.
 
+**When saving is switched off:** some browsers block local storage, especially
+for pages opened straight from the filesystem (`file://`) and in private
+windows. The site detects it and says so — About and collection pages carry a
+plain line explaining that nothing is being kept, favoriting reports
+"on My List for this visit only", the game itself stops promising a saved best
+score, and the launch preference stops claiming to be remembered. The library
+still loads and every game still plays; a regular window, or serving the site
+over http(s), makes saving work again.
+
 ## Tests
 
 ```sh
@@ -195,8 +210,10 @@ The browser suite covers search, categories, sorting, persistent favorites,
 launch preferences, setup dialogs, 2048 scoring, every original game's
 start/pause/restart, a complete Memory Match win, the on-screen Catalog check
 notice (and its dismiss button), the "game library could not be read" panel,
-mobile navigation, horizontal overflow at four widths, and opening the whole
-site over `file://` with no server. Screenshots are written to the ignored
+an end-to-end catalog edit, a browser that blocks local storage (everything
+still loads, plays, and says plainly that nothing is being kept), mobile
+navigation, horizontal overflow at four widths, and opening the whole site
+over `file://` with no server. Screenshots are written to the ignored
 `.test-artifacts/` directory.
 
 ## Attribution

@@ -250,6 +250,99 @@
       );
   }
 
+  /* --------------------------------------------------------------- storage */
+
+  /**
+   * Saving can fail for reasons outside the site's control: private windows,
+   * browsers that block storage on file:// pages, or a full quota. Every save
+   * goes through here so the page can say so instead of quietly pretending
+   * the data was kept.
+   */
+  let storageState = null; // null = not probed yet, otherwise true/false
+
+  /** The browser's localStorage, or null when it cannot be reached at all. */
+  function storageRef() {
+    try {
+      if (typeof window !== "undefined" && window.localStorage)
+        return window.localStorage;
+    } catch (_) {
+      return null; // Reading the property can throw when storage is blocked.
+    }
+    try {
+      return typeof localStorage !== "undefined" ? localStorage : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function probeStorage() {
+    const store = storageRef();
+    if (!store) return false;
+    try {
+      store.setItem("exst-storage-probe", "1");
+      store.removeItem("exst-storage-probe");
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function storageAvailable() {
+    if (storageState === null) storageState = probeStorage();
+    return storageState;
+  }
+
+  function storageGet(key, fallback) {
+    const store = storageRef();
+    if (!store) return fallback;
+    try {
+      const raw = store.getItem(key);
+      if (raw === null || raw === undefined) return fallback;
+      try {
+        const value = JSON.parse(raw);
+        return value === null || value === undefined ? fallback : value;
+      } catch (_) {
+        // Plain, unquoted values (written before, or by hand) are used as-is,
+        // so a change of encoding never orphans what is already saved.
+        return raw;
+      }
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  /** Returns true when the value was really stored. */
+  function storageSet(key, value) {
+    const store = storageRef();
+    if (!store) {
+      storageState = false;
+      return false;
+    }
+    try {
+      // Strings stay unquoted in storage, exactly like this site always
+      // wrote them; everything else is JSON.
+      store.setItem(
+        key,
+        typeof value === "string" ? value : JSON.stringify(value),
+      );
+      storageState = true;
+      return true;
+    } catch (_) {
+      storageState = false;
+      return false;
+    }
+  }
+
+  /** Plain-language explanation of blocked storage, or "" when it works. */
+  function storageNoticeText() {
+    if (storageAvailable()) return "";
+    return (
+      "This browser is not letting the page save data, so favorites, recents, play counts, " +
+      "preferences, and high scores are not kept. A regular (non-private) window, or serving " +
+      "the site over http(s), usually fixes it."
+    );
+  }
+
   /* ------------------------------------------------------------- normalizers */
 
   function normalizeGame(game) {
@@ -466,12 +559,8 @@
   }
 
   function getOpenMode() {
-    try {
-      const mode = localStorage.getItem("exst-open-mode");
-      return ["page", "same", "new"].includes(mode) ? mode : "page";
-    } catch {
-      return "page";
-    }
+    const mode = storageGet("exst-open-mode", "page");
+    return ["page", "same", "new"].includes(mode) ? mode : "page";
   }
 
   function bindOpenModeSelect() {
@@ -479,11 +568,8 @@
     if (!select) return;
     select.value = getOpenMode();
     select.addEventListener("change", () => {
-      try {
-        localStorage.setItem("exst-open-mode", select.value);
-      } catch {
-        /* Storage can be disabled by the browser. */
-      }
+      // The page shows a note when this returns false.
+      storageSet("exst-open-mode", select.value);
     });
   }
 
@@ -561,6 +647,10 @@
     bindOpenModeSelect,
     createGameCard,
     catalogNoticeHtml,
+    storageAvailable,
+    storageGet,
+    storageSet,
+    storageNoticeText,
     gameUrl,
     homeUrl,
     getOpenMode,

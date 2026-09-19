@@ -14,22 +14,41 @@ const storage = new Map();
  * which we set explicitly per scenario ("" = inside website/, "website/" =
  * from the root index.html).
  */
-function loadArcade(siteRoot) {
+function loadArcade(siteRoot, options = {}) {
+  // `null` means "blocked storage", so it must not fall back to the default.
+  const backing = "storage" in options ? options.storage : storage;
   const context = vm.createContext({
-    window: {
-      location: { pathname: "/index.html" },
-      EXST_SITE_ROOT: siteRoot,
-    },
+    window: null, // filled in below, once the storage shim exists
     document: { currentScript: null },
     URLSearchParams,
-    localStorage: {
-      getItem: (k) => storage.get(k),
-      setItem: (k, v) => storage.set(k, v),
-    },
+    console: { warn: () => {} },
+    localStorage: backing
+      ? {
+          getItem: (k) => backing.get(k),
+          setItem: (k, v) => backing.set(k, v),
+          removeItem: (k) => backing.delete(k),
+        }
+      : {
+          getItem() {
+            throw new Error("storage blocked");
+          },
+          setItem() {
+            throw new Error("storage blocked");
+          },
+          removeItem() {
+            throw new Error("storage blocked");
+          },
+        },
     fetch: () => {
       throw new Error("catalog must not be fetched over the network");
     },
   });
+  context.window = {
+    location: { pathname: "/index.html" },
+    EXST_SITE_ROOT: siteRoot,
+    // Reachable both as window.localStorage and as the global.
+    localStorage: context.localStorage,
+  };
   context.window.window = context.window;
   vm.runInContext(
     fs.readFileSync(path.join(site, "data/games.js"), "utf8"),
@@ -353,4 +372,44 @@ test("the catalog notice renders problems with their file and line", async () =>
   assert.ok(/&lt;/.test(api.catalogNoticeHtml([
     { file: "f.js", line: 1, message: "<script>", hint: "" },
   ])));
+});
+
+/* ---------- Saving is reported, never silently dropped ---------- */
+
+test("storage helpers report availability and never throw", () => {
+  const working = loadArcade("").api;
+  assert.equal(working.storageAvailable(), true);
+  assert.equal(working.storageSet("exst-favorites", ["a"]), true);
+  assert.deepEqual(Array.from(working.storageGet("exst-favorites", [])), ["a"]);
+  assert.equal(working.storageNoticeText(), "");
+
+  const blocked = loadArcade("", { storage: null }).api;
+  assert.equal(blocked.storageAvailable(), false);
+  assert.equal(blocked.storageSet("exst-favorites", ["a"]), false);
+  assert.deepEqual(Array.from(blocked.storageGet("exst-favorites", ["fallback"])), [
+    "fallback",
+  ]);
+  assert.match(blocked.storageNoticeText(), /not letting the page save data/);
+});
+
+test("a blocked storage does not break catalog loading or the open mode", async () => {
+  const { api } = loadArcade("", { storage: null });
+  const { games, folders } = await api.loadArcadeData();
+  assert.equal(games.length, 16);
+  assert.equal(folders.length, 4);
+  assert.equal(api.getOpenMode(), "page");
+});
+
+test("preferences written before (and by hand) are still read", () => {
+  const store = new Map([["exst-open-mode", "new"], ["exst-favorites", "[]"]]);
+  const { api } = loadArcade("", { storage: store });
+  assert.equal(api.getOpenMode(), "new");
+  assert.deepEqual(Array.from(api.storageGet("exst-favorites", ["x"])), []);
+
+  // ...and writing keeps strings plain, exactly as before.
+  assert.equal(api.storageSet("exst-open-mode", "same"), true);
+  assert.equal(store.get("exst-open-mode"), "same");
+  assert.equal(api.storageSet("exst-favorites", ["a", "b"]), true);
+  assert.equal(store.get("exst-favorites"), '["a","b"]');
+  assert.equal(api.getOpenMode(), "same");
 });

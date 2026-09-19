@@ -70,11 +70,44 @@
     $("touchControls").hidden = true;
     $("scoreLabel").textContent = "POINTS";
   }
-  let best = 0;
-  try {
-    best = Number(JSON.parse(localStorage.getItem(`exst-best-${id}`))) || 0;
-  } catch {}
+  /* Best scores. Storage can be blocked (private window, some file:// pages),
+     so a failed save is reported in the note under the game instead of
+     pretending the score was kept. */
+  let savingWarned = false;
+  function noteSavingUnavailable() {
+    if (savingWarned) return;
+    savingWarned = true;
+    const note = $("gameNote");
+    if (note)
+      note.textContent =
+        "This browser is not letting the page save data, so your best score is not kept after you leave. A regular (non-private) window usually fixes it.";
+  }
+  function readBest() {
+    try {
+      return Number(JSON.parse(localStorage.getItem(`exst-best-${id}`))) || 0;
+    } catch {
+      return 0;
+    }
+  }
+  function writeBest(value) {
+    try {
+      localStorage.setItem(`exst-best-${id}`, JSON.stringify(value));
+      return true;
+    } catch {
+      noteSavingUnavailable();
+      return false;
+    }
+  }
+  let best = readBest();
   $("best").textContent = best;
+  // Check up front too, so the promise under the game is only made when it
+  // can actually be kept.
+  try {
+    localStorage.setItem("exst-storage-probe", "1");
+    localStorage.removeItem("exst-storage-probe");
+  } catch {
+    noteSavingUnavailable();
+  }
   let score = 0,
     running = false,
     paused = false,
@@ -92,9 +125,7 @@
     if (score > best) {
       best = score;
       $("best").textContent = best;
-      try {
-        localStorage.setItem(`exst-best-${id}`, JSON.stringify(best));
-      } catch {}
+      writeBest(best);
     }
   }
   function announce(text) {
@@ -106,7 +137,9 @@
     $("instructions").textContent = description;
     $("startButton").innerHTML = button + " <span>→</span>";
     $("overlayTip").textContent = ended
-      ? "Your best score is saved. Ready for another round?"
+      ? savingWarned
+        ? "This browser could not save your score. Ready for another round?"
+        : "Your best score is saved. Ready for another round?"
       : config.tip;
   }
   function gameOver(win = false, message = "") {

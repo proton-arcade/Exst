@@ -45,22 +45,21 @@ async function bootFolder() {
     const card = link?.closest("[data-game-id]");
     if (!card || arcade.byId.get(card.dataset.gameId)?.available === false)
       return;
-    try {
-      const id = card.dataset.gameId;
-      const plays = JSON.parse(localStorage.getItem("exst-game-plays") || "{}");
-      const recent = JSON.parse(localStorage.getItem("exst-recent") || "[]");
-      plays[id] = (Number(plays[id]) || 0) + 1;
-      localStorage.setItem("exst-game-plays", JSON.stringify(plays));
-      localStorage.setItem(
-        "exst-recent",
-        JSON.stringify(
-          [id, ...recent.filter((item) => item !== id)].slice(0, 30),
-        ),
-      );
-    } catch {
-      /* Launching should still work when storage is unavailable. */
-    }
+    // Launching always works; the counts are best-effort and the page says
+    // so when the browser refuses to keep them.
+    const id = card.dataset.gameId;
+    const plays = ExstArcade.storageGet("exst-game-plays", {});
+    const recent = ExstArcade.storageGet("exst-recent", []);
+    plays[id] = (Number(plays[id]) || 0) + 1;
+    ExstArcade.storageSet("exst-game-plays", plays);
+    ExstArcade.storageSet(
+      "exst-recent",
+      [id, ...recent.filter((item) => item !== id)].slice(0, 30),
+    );
   });
+
+  const storageNote = document.getElementById("storageNote");
+  if (storageNote) storageNote.textContent = ExstArcade.storageNoticeText();
 }
 
 bootFolder().catch((error) => {

@@ -1602,3 +1602,16 @@ body.folder-page {
     transition: none;
   }
 }
+
+/* Shown when the browser blocks storage, so nothing claims to be saved
+   when it cannot be. */
+
+.storage-note {
+  color: #ffb3b1;
+  font-size: 90%;
+  line-height: 150%;
+}
+
+.storage-note:empty {
+  display: none;
+}

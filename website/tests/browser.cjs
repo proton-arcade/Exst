@@ -48,9 +48,10 @@ async function launch() {
     const goto = async (route) => {
       await page.goto(base + route);
     };
-    const goTab = async (ref) => {
-      await page.locator(`#footerBar [ref="${ref}"]`).click();
+    const goTabOn = async (target, ref) => {
+      await target.locator(`#footerBar [ref="${ref}"]`).click();
     };
+    const goTab = async (ref) => goTabOn(page, ref);
 
     // Netflix-style home: hero cover + originals row + red logo.
     await goto("/");
@@ -409,6 +410,68 @@ async function launch() {
       );
     } finally {
       fs.rmSync(editDir, { recursive: true, force: true });
+    }
+
+    // A browser that blocks storage must be told, not silently ignored —
+    // "it doesn't save" is never left unexplained.
+    const blockedBrowser = await launch();
+    try {
+      const blockedPage = await blockedBrowser.newPage({
+        viewport: { width: 1440, height: 1000 },
+      });
+      await blockedPage.addInitScript(() => {
+        Object.defineProperty(window, "localStorage", {
+          configurable: true,
+          get() {
+            throw new DOMException("The operation is insecure.", "SecurityError");
+          },
+        });
+      });
+      const blockedErrors = [];
+      blockedPage.on("pageerror", (e) => blockedErrors.push(e.message));
+
+      // The library still loads and plays.
+      await blockedPage.goto(base + "/");
+      await expect(blockedPage.locator("#row-originals .movie")).toHaveCount(6);
+      // ...and About/passwords say plainly that nothing can be saved.
+      await goTabOn(blockedPage, "about");
+      await expect(blockedPage.locator("#catalogStatus")).toContainText(
+        "not letting the page save data",
+      );
+      await expect(blockedPage.locator(".pref-block .hint")).toContainText(
+        "not letting the page save data",
+      );
+      // Favoriting still works for the session and reports the failure.
+      await goTabOn(blockedPage, "home");
+      await blockedPage
+        .locator('#row-originals [data-details="neon-snake"]')
+        .click();
+      await blockedPage.locator("#detailsFooterFav").click();
+      await expect(blockedPage.locator("#toast")).toContainText(
+        "this browser is not saving changes",
+      );
+      await blockedPage.locator("#detailsClose").click();
+
+      // Collection pages say it too.
+      await blockedPage.goto(base + "/website/folder.html?id=arcade");
+      await expect(blockedPage.locator("#storageNote")).toContainText(
+        "not letting the page save data",
+      );
+
+      // And the game itself stops promising a saved best score.
+      await blockedPage.goto(base + "/website/game.html?id=neon-snake");
+      const blockedFrame = blockedPage.frameLocator("#gameFrame");
+      await expect(blockedFrame.locator("#gameNote")).toContainText(
+        "not letting the page save data",
+      );
+
+      assert.deepEqual(blockedErrors, [], "blocked-storage JavaScript errors");
+      console.log(
+        "\u2713 Blocked storage: library still plays, and saving is explained instead of silently dropped",
+      );
+      await blockedPage.close();
+    } finally {
+      await blockedBrowser.close();
     }
 
     assert.deepEqual(errors, [], "Browser JavaScript errors");
