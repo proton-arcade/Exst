@@ -3,18 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#111216" />
-    <title>Exst Arcade — Your next favorite game awaits</title>
+    <meta name="theme-color" content="#121212" />
+    <title>ExstArcade - The best free browser games!</title>
     <meta
       name="description"
       content="A little escape. A lot of fun. Discover free browser games, collect your favorites, and play instantly at Exst Arcade."
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Exst Arcade" />
-    <meta
-      property="og:title"
-      content="Exst Arcade — Your next favorite game awaits"
-    />
+    <meta property="og:title" content="ExstArcade - Your next favorite game awaits" />
     <meta
       property="og:description"
       content="A little escape. A lot of fun. Free browser games, your favorites, instant play — no downloads, no sign-up."
@@ -24,10 +21,7 @@
       content="website/assets/images/neon-drift-hero.webp"
     />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta
-      name="twitter:title"
-      content="Exst Arcade — Your next favorite game awaits"
-    />
+    <meta name="twitter:title" content="ExstArcade - Your next favorite game awaits" />
     <meta
       name="twitter:description"
       content="A little escape. A lot of fun. Free browser games, your favorites, instant play — no downloads, no sign-up."
@@ -45,367 +39,230 @@
       rel="apple-touch-icon"
       href="website/assets/images/apple-touch-icon.png"
     />
-    <link
-      rel="stylesheet"
-      href="website/assets/vendor/hybrid/bootstrap.css"
-    />
-    <link
-      rel="stylesheet"
-      href="website/assets/vendor/hybrid/custom-styles.css"
-    />
-    <link rel="stylesheet" href="website/assets/css/arcade.css" />
+    <link rel="stylesheet" href="website/assets/css/flix.css" />
   </head>
-  <body>
+  <body class="flix">
     <noscript>
       <p style="padding: 1rem; text-align: center">
         Exst Arcade needs JavaScript to load its game library. Please enable
         JavaScript and reload this page.
       </p>
     </noscript>
-    <a class="skip-link" href="#page-wrapper">Skip to games</a>
-    <div id="wrapper">
-      <aside
-        class="navbar-default navbar-side"
-        id="sidebar"
-        aria-label="Main navigation"
-      >
-        <a class="arcade-brand" href="index.html" aria-label="Exst Arcade home"
-          ><span class="logo-icon" data-icon="gamepad"></span
-          ><span
-            >exst<span class="brand-dot">.</span><small>ARCADE</small></span
-          ></a
+    <a class="skip-link" href="#rows">Skip to games</a>
+
+    <!-- Fixed header with red logo, like JuegoAmigo -->
+    <header id="headerBar">
+      <div class="header">
+        <a class="logo" href="#home" aria-label="Exst Arcade home"
+          >ExstArcade<small>ARCADE</small></a
         >
-        <div class="sidebar-collapse">
-          <p class="nav-caption">PLAY YOUR WAY</p>
-          <nav class="nav" id="mainNav">
-            <button class="nav-item active" data-view="discover">
-              <i data-icon="compass"></i> Discover
-              <span class="active-dot"></span>
-            </button>
-            <button class="nav-item" data-view="all">
-              <i data-icon="grid"></i> All games
-              <span class="nav-count" id="allCount">6</span>
-            </button>
-            <button class="nav-item" data-view="recent">
-              <i data-icon="clock"></i> Recently played
-            </button>
-            <button class="nav-item" data-view="favorites">
-              <i data-icon="heart"></i> My favorites
-              <span class="nav-count" id="favoriteCount">0</span>
-            </button>
-            <button class="nav-item" id="foldersButton">
-              <i data-icon="folder"></i> Collections
-            </button>
-          </nav>
-          <div class="nav-divider"></div>
-          <p class="nav-caption">EXPLORE CATEGORIES</p>
-          <nav class="nav categories-nav">
-            <button class="nav-item" data-category="Action">
-              <i data-icon="zap" class="ic-coral"></i> Action
-            </button>
-            <button class="nav-item" data-category="Adventure">
-              <i data-icon="mountain" class="ic-purple"></i> Adventure
-            </button>
-            <button class="nav-item" data-category="Racing">
-              <i data-icon="flag" class="ic-blue"></i> Racing
-            </button>
-            <button class="nav-item" data-category="Puzzle">
-              <i data-icon="puzzle" class="ic-yellow"></i> Puzzle
-            </button>
-            <button class="nav-item" data-category="Arcade">
-              <i data-icon="gamepad" class="ic-green"></i> Arcade
-            </button>
-          </nav>
-        </div>
-        <div class="sidebar-bottom">
-          <div class="random-box">
-            <span class="random-icon" data-icon="shuffle"></span
-            ><strong>Feeling spontaneous?</strong>
-            <p>Your next favorite is one click away.</p>
-            <button id="randomGame">
-              Surprise me <i data-icon="arrow-right"></i>
-            </button>
-          </div>
-          <button class="nav-item" id="settingsButton">
-            <i data-icon="settings"></i> Preferences
-          </button>
-          <div class="sidebar-status">
-            <span></span> All play. No downloads.
-          </div>
-        </div>
-      </aside>
-      <div class="main-content">
-        <header class="top-navbar">
-          <div class="top-left">
-            <button
-              class="icon-button mobile-menu"
-              id="menuToggle"
-              aria-label="Toggle navigation"
-              aria-expanded="false"
-            >
-              <i data-icon="menu"></i></button
-            ><span class="breadcrumb-text"
-              >Arcade <span>/</span> <b id="breadcrumb">Discover</b></span
-            >
-          </div>
-          <div class="top-actions">
-            <label class="global-search"
-              ><i data-icon="search"></i
-              ><input
-                type="search"
-                id="searchInput"
-                placeholder="Search games..."
-                aria-label="Search games"
-              /><kbd>/</kbd></label
-            ><span class="top-separator"></span
-            ><button
-              class="icon-button notification-button"
-              id="newsButton"
-              aria-label="What's new"
-            >
-              <i data-icon="bell"></i><span></span></button
-            ><button
-              class="profile-avatar"
-              id="profileButton"
-              aria-label="Your player profile"
-            >
-              P<span></span>
-            </button>
-          </div>
-        </header>
-        <main id="page-wrapper">
-          <div id="page-inner">
-            <section class="welcome-row">
-              <div>
-                <div class="welcome-eyebrow">
-                  <span></span> YOUR DAILY DOSE OF PLAY
-                </div>
-                <h1 id="pageHeading">Good times start here<span>.</span></h1>
-                <p id="pageSubtitle">
-                  Take a break. Find your game. Make a new high score.
-                </p>
-              </div>
-              <span class="welcome-badge"
-                ><i data-icon="zap"></i> Free to play. Forever.</span
-              >
-            </section>
-            <div id="discoveryContent">
-              <section class="featured-layout" aria-label="Featured games">
-                <article class="hero-feature">
-                  <img
-                    class="hero-art"
-                    src="website/assets/images/neon-drift-hero.webp"
-                    alt="Silver sports car on a neon-lit city street"
-                    fetchpriority="high"
-                    decoding="async"
-                  />
-                  <div class="hero-shade"></div>
-                  <div class="hero-copy">
-                    <span class="feature-label"
-                      ><i data-icon="star"></i> IN THE SPOTLIGHT</span
-                    >
-                    <div class="hero-bottom">
-                      <span class="hero-genre"
-                        >RACING <span>•</span> ARCADE ORIGINAL</span
-                      >
-                      <h2>Neon Drift</h2>
-                      <p>
-                        Own the night. Chase the rush.<br />The city is your
-                        playground.
-                      </p>
-                      <div class="hero-buttons">
-                        <button class="primary-button" data-play="neon-drift">
-                          <i data-icon="play"></i> Play now</button
-                        ><button
-                          class="hero-heart"
-                          data-favorite="neon-drift"
-                          aria-label="Add Neon Drift to favorites"
-                        >
-                          <i data-icon="heart"></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="hero-pagination">
-                    <button
-                      class="selected"
-                      aria-label="Show Neon Drift"
-                      data-slide="0"
-                    ></button
-                    ><button
-                      aria-label="Show Cosmic Escape"
-                      data-slide="1"
-                    ></button
-                    ><button
-                      aria-label="Show Brick Breaker"
-                      data-slide="2"
-                    ></button
-                    ><span>01 <small>/ 03</small></span>
-                  </div>
-                  <span class="hero-instant"
-                    ><i data-icon="zap"></i> INSTANT PLAY</span
-                  >
-                </article>
-                <article class="daily-card">
-                  <div class="daily-heading">
-                    <span class="daily-symbol" data-icon="trophy"></span
-                    ><span class="daily-chip">DAILY CHALLENGE</span>
-                  </div>
-                  <div>
-                    <p class="daily-overline">SMALL GAME. BIG BRAIN ENERGY.</p>
-                    <h2>Just one more<br />move<span>.</span></h2>
-                    <p>
-                      Can you reach the elusive 2048?<br />Slide, merge, and
-                      beat your best.
-                    </p>
-                  </div>
-                  <div class="number-tiles" aria-hidden="true">
-                    <span>128</span><span>256</span><span>512</span
-                    ><span>1024</span><span>2048</span>
-                  </div>
-                  <div class="daily-bottom">
-                    <span><i data-icon="clock"></i> A perfect 5-min break</span
-                    ><button data-play="2048">
-                      Challenge accepted <i data-icon="arrow-right"></i>
-                    </button>
-                  </div>
-                </article>
-              </section>
-              <div class="benefits-strip">
-                <div>
-                  <span
-                    class="benefit-icon coral-bg"
-                    data-icon="gamepad"
-                  ></span>
-                  <p>
-                    <strong>A little escape, a lot of fun</strong
-                    ><small>Handpicked games. Endless good times.</small>
-                  </p>
-                </div>
-                <div>
-                  <span class="benefit-icon green-bg" data-icon="zap"></span>
-                  <p>
-                    <strong>Click. Play. Repeat.</strong
-                    ><small>No installs. No waiting. Just play.</small>
-                  </p>
-                </div>
-                <div>
-                  <span class="benefit-icon purple-bg" data-icon="heart"></span>
-                  <p>
-                    <strong>Your own little arcade</strong
-                    ><small>Save your favorites. Pick up anytime.</small>
-                  </p>
-                </div>
-              </div>
-            </div>
-            <section class="games-section" id="games">
-              <div class="section-heading">
-                <div>
-                  <h2>
-                    <i data-icon="flame" class="ic-coral"></i
-                    ><span id="gridHeading">Find your next obsession</span>
-                  </h2>
-                  <p id="gridSubtitle">
-                    Big adventures and little distractions. There’s something
-                    for everyone.
-                  </p>
-                </div>
-                <button class="text-button" id="viewAll">
-                  View all games <i data-icon="arrow-right"></i>
-                </button>
-              </div>
-              <div class="filter-row">
-                <div
-                  class="filter-tabs"
-                  role="group"
-                  aria-label="Filter by category"
-                >
-                  <button class="active" data-filter="All">
-                    <i data-icon="grid"></i> All games</button
-                  ><button data-filter="Action">Action</button
-                  ><button data-filter="Adventure">Adventure</button
-                  ><button data-filter="Racing">Racing</button
-                  ><button data-filter="Puzzle">Puzzle</button
-                  ><button data-filter="Arcade">Arcade</button>
-                </div>
-                <label class="sort-control"
-                  ><i data-icon="sort"></i
-                  ><select id="sortSelect" aria-label="Sort games">
-                    <option value="popular">Popular</option>
-                    <option value="newest">Newest</option>
-                    <option value="az">Name: A–Z</option>
-                    <option value="played">Most played</option></select
-                  ><i data-icon="chevron-down"></i
-                ></label>
-              </div>
-              <div class="row game-grid" id="gameGrid" aria-live="polite"></div>
-              <div class="library-note" id="libraryNote">
-                <span
-                  ><span class="online-dot"></span> No sign-up. No downloads. No
-                  excuses.</span
-                ><span>Just press play <i data-icon="arrow-up-right"></i></span>
-              </div>
-            </section>
-            <section class="collections-section" id="collections">
-              <div class="section-heading">
-                <div>
-                  <h2>Pick a mood. Find a game.</h2>
-                  <p>A few shortcuts to your happy place.</p>
-                </div>
-                <span class="small-muted">CURATED FOR YOU</span>
-              </div>
-              <div class="collection-grid">
-                <button
-                  data-collection="quick"
-                  class="collection-card quick-collection"
-                >
-                  <span class="collection-icon" data-icon="zap"></span>
-                  <div>
-                    <strong>The 5-minute escape</strong
-                    ><span>Short break. Great games.</span>
-                  </div>
-                  <i data-icon="arrow-up-right"></i></button
-                ><button
-                  data-collection="puzzle"
-                  class="collection-card puzzle-collection"
-                >
-                  <span class="collection-icon" data-icon="puzzle"></span>
-                  <div>
-                    <strong>Give your brain a workout</strong
-                    ><span>A little thinking goes a long way.</span>
-                  </div>
-                  <i data-icon="arrow-up-right"></i></button
-                ><button
-                  data-collection="originals"
-                  class="collection-card original-collection"
-                >
-                  <span class="collection-icon" data-icon="gamepad"></span>
-                  <div>
-                    <strong>Arcade after hours</strong
-                    ><span>Chase that new high score.</span>
-                  </div>
-                  <i data-icon="arrow-up-right"></i></button>
-              </div>
-            </section>
-            <footer class="arcade-footer">
-              <span class="footer-wordmark"
-                >exst<span>.</span>
-                <small
-                  >A little less scrolling. A little more playing.</small
-                ></span
-              ><span
-                >Built on
-                <a href="https://webthemez.com/" target="_blank" rel="noopener"
-                  >Hybrid by WebThemez</a
-                ><span class="footer-dot">·</span
-                ><button id="aboutButton">
-                  About the arcade <i data-icon="arrow-up-right"></i></button
-              ></span>
-            </footer>
-          </div>
-        </main>
       </div>
+    </header>
+
+    <main id="pages">
+      <!-- HOME: hero cover + poster rows -->
+      <section class="flix-page" id="page-home" aria-label="Home">
+        <div class="cover-wrapper">
+          <div class="cover" id="heroCover"></div>
+          <div class="hero-shade"></div>
+          <div class="hero-content">
+            <div class="hero-kicker" id="heroKicker">IN THE SPOTLIGHT</div>
+            <h1 class="hero-title" id="heroTitle">Loading…</h1>
+            <div class="hero-meta" id="heroMeta"></div>
+            <p class="hero-overview" id="heroOverview"></p>
+            <div class="categories" id="heroCategories"></div>
+            <div class="options">
+              <button class="flat-btn" id="heroFavorite" data-favorite="">
+                <i data-icon="add"></i><span>My List</span>
+              </button>
+              <button class="play-btn" id="heroPlay" data-play="">
+                <i data-icon="play"></i>Play
+              </button>
+              <button class="flat-btn" id="heroDetails" data-details="">
+                <i data-icon="info"></i><span>Details</span>
+              </button>
+            </div>
+            <div class="hero-dots" id="heroDots" role="group" aria-label="Featured games"></div>
+          </div>
+        </div>
+
+        <div id="rows" aria-live="polite"></div>
+
+        <div class="about-box">
+          Thanks for playing at ExstArcade
+          <br />The best free browser games!
+          <br /><a href="#about">About the arcade</a>
+        </div>
+      </section>
+
+      <!-- SEARCH -->
+      <section class="flix-page" id="page-search" aria-label="Search" hidden>
+        <div class="flix-subpage">
+          <h1>Search</h1>
+          <p class="sub" id="searchCount">Loading the library…</p>
+          <label class="search-bar">
+            <i data-icon="search"></i>
+            <input
+              type="search"
+              id="searchInput"
+              placeholder="Titles, tags, moods…"
+              aria-label="Search games"
+              autocomplete="off"
+            />
+          </label>
+          <div class="chip-row" role="group" aria-label="Filter by category">
+            <button class="chip active" data-filter="All">All</button>
+            <button class="chip" data-filter="Action">Action</button>
+            <button class="chip" data-filter="Adventure">Adventure</button>
+            <button class="chip" data-filter="Racing">Racing</button>
+            <button class="chip" data-filter="Puzzle">Puzzle</button>
+            <button class="chip" data-filter="Arcade">Arcade</button>
+          </div>
+          <div class="sort-row">
+            <i data-icon="sort"></i>
+            <label for="sortSelect">Sort</label>
+            <select id="sortSelect" aria-label="Sort games">
+              <option value="popular">Popular</option>
+              <option value="newest">Newest</option>
+              <option value="az">Name: A–Z</option>
+              <option value="played">Most played</option>
+            </select>
+          </div>
+          <div class="search-grid" id="searchGrid" aria-live="polite"></div>
+          <div class="empty-state" id="searchEmpty" hidden>
+            <i data-icon="search"></i>
+            <h3>No games found</h3>
+            <p>Try another title or choose a different category.</p>
+            <button class="primary-button" data-goto="#home">Explore games</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- NOTIFICATIONS / WHAT'S NEW -->
+      <section class="flix-page" id="page-notifications" aria-label="What's new" hidden>
+        <div class="flix-subpage">
+          <h1>What's new</h1>
+          <p class="sub">Fresh from the arcade, plus your recent plays.</p>
+          <div class="news-card">
+            <span class="daily-chip">THE ORIGINALS ARE HERE</span>
+            <h3>Six little escapes. Zero downloads.</h3>
+            <p>
+              Meet Neon Drift, Neon Snake, 2048, Cosmic Escape, Memory Match,
+              and Brick Breaker. Each one is built into your arcade and ready
+              to play.
+            </p>
+          </div>
+          <div class="news-card">
+            <h3>A home for your favorites</h3>
+            <p>
+              Tap + My List on any game to save it. Your list, recent games,
+              and high scores stay on this device.
+            </p>
+          </div>
+          <div class="flix-row" id="recentRow" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- ABOUT + PREFERENCES + COLLECTIONS -->
+      <section class="flix-page" id="page-about" aria-label="About" hidden>
+        <div class="flix-subpage">
+          <h1>About</h1>
+          <p class="sub">Hey, Player One. No account needed.</p>
+          <div class="stat-row">
+            <div><strong id="statTried">0</strong><span>Games tried</span></div>
+            <div><strong id="statPlays">0</strong><span>Total plays</span></div>
+            <div><strong id="favoriteCount">0</strong><span>My List</span></div>
+          </div>
+          <div class="pref-block">
+            <label for="openMode">When I press play</label>
+            <select id="openMode">
+              <option value="page">Open in the arcade player</option>
+              <option value="same">Open game in this tab</option>
+              <option value="new">Open game in a new tab</option>
+            </select>
+            <p class="hint">
+              Preferences are saved on this device. Tip: press
+              <kbd>/</kbd> to find a game instantly.
+            </p>
+          </div>
+          <h2>Collections</h2>
+          <div class="folder-links" id="aboutFolders"></div>
+          <h2>Made for a quick escape</h2>
+          <p class="body">
+            Exst Arcade is a free, lightweight home for browser games — no
+            accounts, subscriptions, or downloads required. Six original
+            minigames are included. Keep building your collection by editing
+            <code>website/data/games.js</code> and dropping your game files
+            into <code>website/games/</code>.
+          </p>
+          <p class="body">
+            Look inspired by
+            <a
+              href="https://github.com/JuegoAmigo/juegoamigo.github.io"
+              target="_blank"
+              rel="noopener"
+              >JuegoAmigo.github.io</a
+            >
+            and the zuix-web-flix template. Game artwork is AI-generated.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Fixed bottom icon bar -->
+    <footer id="footerBar" aria-label="Site navigation">
+      <button ref="home" class="active" aria-label="Home">
+        <i data-icon="home"></i><span>Home</span>
+      </button>
+      <button ref="search" aria-label="Search">
+        <i data-icon="search"></i><span>Search</span>
+      </button>
+      <button ref="notifications" aria-label="What's new">
+        <i data-icon="bell"></i><span>New</span>
+      </button>
+      <button ref="about" aria-label="About">
+        <i data-icon="info"></i><span>About</span>
+      </button>
+    </footer>
+
+    <!-- Slide-in details page -->
+    <div id="detailsPage" hidden role="dialog" aria-modal="true" aria-labelledby="detailsTitle">
+      <header id="detailsHeader">
+        <button id="detailsClose" aria-label="Back">
+          <i data-icon="arrow_back"></i>
+        </button>
+        <h1 id="detailsHeadTitle"></h1>
+      </header>
+      <main>
+        <div class="details-cover" id="detailsCover">
+          <div class="background"></div>
+          <h1 id="detailsTitle">Game title</h1>
+        </div>
+        <div class="details-body">
+          <p id="detailsMeta" class="sub"></p>
+          <div class="tag-row" id="detailsTags"></div>
+          <p id="detailsOverview"></p>
+          <h2>Vote <span id="detailsVote">7.5</span></h2>
+          <div class="details-actions">
+            <a class="ghost" id="detailsDirect" target="_blank" rel="noopener"
+              ><i data-icon="arrow-up-right"></i>Direct link</a
+            >
+          </div>
+        </div>
+      </main>
+      <footer>
+        <button id="detailsFooterFav" data-favorite="">
+          <i data-icon="add"></i><span>My List</span>
+        </button>
+        <button class="play-cta" id="detailsPlay" data-play="">
+          <i data-icon="play"></i>Play
+        </button>
+        <button id="detailsShare">
+          <i data-icon="share"></i><span>Share</span>
+        </button>
+      </footer>
     </div>
+
     <dialog id="infoDialog" class="arcade-dialog">
       <div class="dialog-header">
         <h2 id="dialogTitle"></h2>
@@ -420,6 +277,6 @@
     <script src="website/data/folders.js"></script>
     <script src="website/assets/js/icons.js"></script>
     <script src="website/assets/js/config-loader.js"></script>
-    <script src="website/assets/js/app.js"></script>
+    <script src="website/assets/js/flix.js"></script>
   </body>
 </html>

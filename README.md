@@ -101,17 +101,19 @@ icon=assets/images/folder.svg
 games=neon-snake, 2048, retro-pong
 ```
 
-`games` is a comma-separated list of game `id`s. The folder shows up in
-**Collections** (sidebar) and at `website/folder.html?id=my-folder`.
+`games` is a comma-separated list of game `id`s. The folder shows up as its
+own poster row on the home page, under **About → Collections**, and at
+`website/folder.html?id=my-folder`.
 
 ## Included features
 
-- Hybrid's sidebar/topbar dashboard structure and original Bootstrap CSS,
-  with a responsive custom theme.
-- Featured-game carousel, category filters, live search, sorting, and curated
-  collections.
-- Favorites, recent plays, play counts, launch preferences, and high scores
-  saved in the current browser's local storage.
+- Netflix-style home screen: fixed header, 90vh hero cover with Play / My
+  List / Details, horizontal poster galleries, and a bottom tab bar
+  (Home, Search, New, About).
+- Featured-game hero rotation, category chips, live search, sorting, and
+  curated collections.
+- My List favorites, recent plays, play counts, launch preferences, and high
+  scores saved in the current browser's local storage.
 - A game player with reload, fullscreen, and direct/new-tab launch options.
 - Keyboard controls, on-screen direction buttons, and touch controls in the
   original games.

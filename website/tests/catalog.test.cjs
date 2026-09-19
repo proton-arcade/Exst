@@ -171,6 +171,7 @@ test("all original game IDs have a playable engine", async () => {
 test("no page fetches the catalog at runtime", () => {
   for (const file of [
     "assets/js/app.js",
+    "assets/js/flix.js",
     "assets/js/game.js",
     "assets/js/folder.js",
   ]) {

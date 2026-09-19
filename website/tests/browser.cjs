@@ -48,60 +48,84 @@ async function launch() {
     const goto = async (route) => {
       await page.goto(base + route);
     };
+    const goTab = async (ref) => {
+      await page.locator(`#footerBar [ref="${ref}"]`).click();
+    };
+
+    // Netflix-style home: hero cover + originals row + red logo.
     await goto("/");
-    await expect(page.locator(".arcade-game-card")).toHaveCount(6);
-    await expect(page.locator("#sidebar")).toHaveCSS(
-      "background-color",
-      "rgb(23, 24, 29)",
+    await expect(page.locator("#row-originals .movie")).toHaveCount(6);
+    await expect(page.locator(".logo")).toHaveCSS(
+      "color",
+      "rgb(221, 53, 50)",
     );
-    await page
-      .locator('.favorite-button[data-favorite="neon-snake"]')
-      .click();
+    await expect(page.locator(".hero-title")).not.toBeEmpty();
+    await expect(page.locator("#page-home")).toBeVisible();
+
+    // Details slide-in + My List favorites with reload persistence.
+    await page.locator('#row-originals [data-details="neon-snake"]').click();
+    await expect(page.locator("#detailsPage")).toBeVisible();
+    await expect(page.locator("#detailsTitle")).toHaveText("Neon Snake");
+    await page.locator("#detailsFooterFav").click();
+    await page.locator("#detailsClose").click();
+    await expect(page.locator("#row-mylist .movie")).toHaveCount(1);
+    await goTab("about");
     await expect(page.locator("#favoriteCount")).toHaveText("1");
-    await page.locator('[data-view="favorites"]').first().click();
-    await expect(page.locator(".arcade-game-card")).toHaveCount(1);
+    await goTab("home");
     await page.reload();
-    await expect(page.locator(".arcade-game-card h3")).toHaveText(
+    await expect(page.locator("#row-mylist .movie .item-label")).toHaveText(
       "Neon Snake",
     );
-    await page.locator(".favorite-button").click();
-    await expect(page.locator(".empty-state")).toBeVisible();
-    await page.locator('#mainNav [data-view="discover"]').click();
+    await page.locator('#row-mylist [data-details="neon-snake"]').click();
+    await page.locator("#detailsFooterFav").click();
+    await page.locator("#detailsClose").click();
+    await expect(page.locator("#row-mylist")).toBeHidden();
+
+    // Search tab: live results, empty states, categories, sorting.
+    await goTab("search");
     await page.locator("#searchInput").fill("snake");
-    await expect(page.locator(".arcade-game-card")).toHaveCount(1);
+    await expect(page.locator("#searchGrid .movie")).toHaveCount(1);
     await page.locator("#searchInput").fill("no-such-game");
-    await expect(page.locator(".empty-state")).toBeVisible();
+    await expect(page.locator("#searchEmpty")).toBeVisible();
     await page.locator("#searchInput").fill("");
     await page.locator('[data-filter="Puzzle"]').click();
-    await expect(page.locator(".arcade-game-card")).toHaveCount(2);
+    await expect(page.locator("#searchGrid .movie")).toHaveCount(2);
     await page.locator('[data-filter="All"]').click();
     await page.locator("#sortSelect").selectOption("az");
-    await expect(page.locator(".arcade-game-card h3").first()).toHaveText(
-      "2048",
-    );
+    await expect(
+      page.locator("#searchGrid .movie .item-label").first(),
+    ).toHaveText("2048");
+    await page.locator("#sortSelect").selectOption("popular");
+
+    // Hero carousel rotates the featured spotlight.
+    await goTab("home");
     await page.locator('[data-slide="1"]').click();
-    await expect(page.locator(".hero-copy h2")).toHaveText("Cosmic Escape");
-    await page.locator("#settingsButton").click();
+    await expect(page.locator(".hero-title")).toHaveText("Neon Snake");
+
+    // Preferences persist the launch mode.
+    await goTab("about");
     await page.locator("#openMode").selectOption("new");
-    await page.locator("#savePreferences").click();
     assert.equal(
       await page.evaluate(() => localStorage.getItem("exst-open-mode")),
       "new",
     );
-    await page.locator("#settingsButton").click();
     await page.locator("#openMode").selectOption("page");
-    await page.locator("#savePreferences").click();
-    await page.locator('#mainNav [data-view="all"]').click();
-    await expect(page.locator(".arcade-game-card")).toHaveCount(16);
-    await page.locator('.card-play[data-play="fnaf"]').click();
+
+    // Full library + setup-needed starter entries.
+    await goTab("search");
+    await expect(page.locator("#searchGrid .movie")).toHaveCount(16);
+    await page.locator('#searchGrid [data-details="fnaf"]').click();
     await expect(page.locator("#dialogTitle")).toHaveText(
       "This game needs its files",
     );
     await page.locator("#closeDialog").click();
     console.log(
-      "✓ Search, categories, sorting, favorites, carousel, preferences and setup states",
+      "✓ Search, categories, sorting, My List, carousel, preferences and setup states",
     );
-    await page.locator('.card-play[data-play="2048"]').click();
+
+    // Details Play launches the player; 2048 merges and scores.
+    await page.locator('#searchGrid [data-details="2048"]').click();
+    await page.locator("#detailsPlay").click();
     await page.waitForURL("**/website/game.html?id=2048");
     const frame = page.frameLocator("#gameFrame");
     await frame.locator("#startButton").click();
@@ -116,8 +140,10 @@ async function launch() {
         await page.keyboard.press(key);
     assert.ok(Number(await frame.locator("#score").textContent()) > 0);
     await page.locator("#backLink").click();
-    await page.locator('#mainNav [data-view="recent"]').click();
-    await expect(page.locator(".arcade-game-card h3")).toHaveText("2048");
+    await goTab("notifications");
+    await expect(
+      page.locator("#recentRow .movie .item-label").first(),
+    ).toHaveText("2048");
     console.log(
       "✓ Game player, 2048 merge scoring, persistence and recently played",
     );
@@ -173,7 +199,7 @@ async function launch() {
     assert.ok(Number(await page.locator("#score").textContent()) >= 800);
     console.log("✓ Memory Match complete win and high score");
     await goto("/");
-    await expect(page.locator(".arcade-game-card")).toHaveCount(6);
+    await expect(page.locator("#row-originals .movie")).toHaveCount(6);
     fs.mkdirSync(path.join(root, ".test-artifacts"), { recursive: true });
     await page.screenshot({
       path: path.join(root, ".test-artifacts/desktop.png"),
@@ -194,15 +220,14 @@ async function launch() {
           path: path.join(root, ".test-artifacts/mobile.png"),
           fullPage: true,
         });
-        await page.locator("#menuToggle").click();
-        await expect(page.locator("#sidebar")).toHaveClass(/open/);
-        await page.locator('#mainNav [data-view="favorites"]').click();
-        await expect(page.locator("#sidebar")).not.toHaveClass(/open/);
-        await page.locator("#menuToggle").click();
-        await page.locator('#mainNav [data-view="discover"]').click();
+        await goTab("search");
+        await expect(page.locator("#page-search")).toBeVisible();
+        await expect(page.locator("#page-home")).toBeHidden();
+        await goTab("home");
+        await expect(page.locator("#page-home")).toBeVisible();
       }
     }
-    await page.locator("#foldersButton").click();
+    await goTab("about");
     await expect(page.locator(".folder-links>a")).toHaveCount(4);
     await page
       .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
@@ -245,10 +270,11 @@ async function launch() {
     const fileErrors = [];
     filePage.on("pageerror", (e) => fileErrors.push(e.message));
     await filePage.goto("file://" + path.join(root, "index.html"));
-    await expect(filePage.locator(".arcade-game-card")).toHaveCount(6);
+    await expect(filePage.locator("#row-originals .movie")).toHaveCount(6);
     await filePage
-      .locator('.card-play[data-play="neon-drift"]')
+      .locator('#row-originals [data-details="neon-drift"]')
       .click();
+    await filePage.locator("#detailsPlay").click();
     await filePage.waitForURL(/game\.html\?id=neon-drift/);
     await filePage
       .frameLocator("#gameFrame")
@@ -257,8 +283,8 @@ async function launch() {
     await expect(filePage.frameLocator("#gameFrame").locator("#overlay")).toBeHidden();
     await filePage.locator("#backLink").click();
     await filePage.waitForURL(/index\.html/);
-    await expect(filePage.locator(".arcade-game-card")).toHaveCount(6);
-    await filePage.locator("#foldersButton").click();
+    await expect(filePage.locator("#row-originals .movie")).toHaveCount(6);
+    await filePage.locator('#footerBar [ref="about"]').click();
     await filePage
       .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
       .click();
