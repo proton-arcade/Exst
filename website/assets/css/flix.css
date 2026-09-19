@@ -1615,3 +1615,295 @@ body.folder-page {
 .storage-note:empty {
   display: none;
 }
+
+/* ---------- Add-a-game page (website/add.html) ---------- */
+
+body.add-page main.add-main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 84px 20px 120px;
+}
+
+body.add-page h1 {
+  font-size: 200%;
+  margin: 0 0 6px;
+}
+
+body.add-page h2 {
+  color: #fff;
+  font-size: 120%;
+  margin: 34px 0 6px;
+}
+
+body.add-page p.sub {
+  color: var(--flix-muted);
+  line-height: 160%;
+  margin: 0 0 8px;
+}
+
+body.add-page code {
+  background: #000;
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: #ffcf2f;
+  overflow-wrap: anywhere;
+}
+
+.add-form {
+  background: #1c1c1c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 18px 18px 8px;
+  margin-top: 18px;
+  user-select: text;
+}
+
+.add-form label {
+  display: block;
+  color: #eee;
+  margin-bottom: 16px;
+  font-size: 95%;
+}
+
+.add-form .field-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.add-form .field-row > label {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.add-form input[type="text"],
+.add-form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  background: #262626;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 100%;
+}
+
+.add-form textarea {
+  resize: vertical;
+}
+
+.add-form input:focus,
+.add-form textarea:focus {
+  outline: 2px solid var(--flix-red);
+  outline-offset: 1px;
+}
+
+.add-form [aria-invalid="true"] {
+  border-color: var(--flix-red);
+}
+
+.add-form .req {
+  color: var(--flix-red);
+  font-size: 75%;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-left: 6px;
+}
+
+.add-form .field-hint {
+  display: block;
+  color: var(--flix-muted);
+  font-size: 82%;
+  line-height: 145%;
+  margin-top: 6px;
+}
+
+.switch-set {
+  border: 0;
+  padding: 0;
+  margin: 0 0 8px;
+}
+
+.switch-set .switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: #ddd;
+}
+
+.switch-set input {
+  margin-top: 3px;
+}
+
+.add-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.ghost-button,
+body.add-page .play-link {
+  background: transparent;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  padding: 9px 18px;
+  font-family: inherit;
+  font-size: 95%;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-actions .primary-button {
+  background: var(--flix-red);
+  color: #fff !important;
+  border: 0;
+  border-radius: 4px;
+  padding: 11px 22px;
+  font-family: inherit;
+  font-size: 100%;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.add-actions .primary-button:disabled {
+  background: #4a2727;
+  cursor: not-allowed;
+}
+
+.add-form .hint,
+.add-help .hint {
+  color: var(--flix-muted);
+  font-size: 88%;
+  line-height: 155%;
+  margin: 12px 0 4px;
+}
+
+.preview-box {
+  position: relative;
+  margin-top: 10px;
+}
+
+.preview-box pre {
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #8ef0a8;
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  user-select: text;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 92%;
+  line-height: 150%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.preview-box .ghost-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #1c1c1c;
+}
+
+.draft-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.draft-card {
+  background: #1c1c1c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 3px solid var(--flix-red);
+  border-radius: 6px;
+  padding: 14px 16px;
+  user-select: text;
+}
+
+.draft-card .draft-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.draft-card .count-pill {
+  margin-left: 0;
+}
+
+.draft-card code {
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.draft-card .draft-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.empty-note {
+  color: var(--flix-muted);
+  margin: 8px 0;
+}
+
+.add-help ol {
+  color: #ddd;
+  line-height: 170%;
+  padding-left: 22px;
+}
+
+body.add-page #footerBar [ref="back"] {
+  color: #fff;
+}
+
+/* A game added on this device, wherever its badge appears. */
+.item-badge.draft {
+  background: #0f6b3a;
+  color: #fff;
+}
+
+.draft-note {
+  background: #12291c;
+  border: 1px solid rgba(15, 107, 58, 0.6);
+  border-radius: 6px;
+  color: #cfeadb;
+  font-size: 92%;
+  line-height: 155%;
+  margin: 14px auto 0;
+  max-width: 640px;
+  padding: 10px 14px;
+  text-align: left;
+  user-select: text;
+}
+
+/* The add-a-game page keeps the arcade header, but the bar must stay legible
+   while the form scrolls under it, and its links belong on the right. */
+body.add-page #headerBar {
+  background-color: var(--flix-bar);
+  border-bottom: 1px solid var(--flix-darkred);
+}
+
+body.add-page #headerBar .top-nav {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  gap: 14px;
+  font-size: 90%;
+}
+
+@media (max-width: 560px) {
+  body.add-page #headerBar .top-nav {
+    display: none;
+  }
+}

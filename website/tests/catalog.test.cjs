@@ -69,16 +69,29 @@ function loadArcade(siteRoot, options = {}) {
  * Same, but with catalog text supplied by the test (undefined = file not
  * loaded, which is what a syntax error in the catalog file looks like).
  */
-function loadArcadeWithText({ gamesText, foldersText, siteRoot = "" }) {
+function loadArcadeWithText({
+  gamesText,
+  foldersText,
+  siteRoot = "",
+  storage: shim,
+}) {
+  const backing = shim || new Map();
   const context = vm.createContext({
-    window: {
-      location: { pathname: "/index.html" },
-      EXST_SITE_ROOT: siteRoot,
-    },
+    window: null, // filled in below, once the storage shim exists
     document: { currentScript: null },
     URLSearchParams,
-    localStorage: { getItem: () => undefined, setItem: () => {} },
+    console: { warn: () => {} },
+    localStorage: {
+      getItem: (k) => (backing.has(k) ? backing.get(k) : null),
+      setItem: (k, v) => backing.set(k, String(v)),
+      removeItem: (k) => backing.delete(k),
+    },
   });
+  context.window = {
+    location: { pathname: "/index.html" },
+    EXST_SITE_ROOT: siteRoot,
+    localStorage: context.localStorage,
+  };
   context.window.window = context.window;
   if (gamesText !== undefined)
     vm.runInContext(
@@ -412,4 +425,157 @@ test("preferences written before (and by hand) are still read", () => {
   assert.equal(api.storageSet("exst-favorites", ["a", "b"]), true);
   assert.equal(store.get("exst-favorites"), '["a","b"]');
   assert.equal(api.getOpenMode(), "same");
+});
+
+/* ---------- Games added from inside the site ---------- */
+
+test("the builder block round-trips through the parser", () => {
+  const { api } = loadArcade("", { storage: new Map() });
+  const block = api.buildGameBlock({
+    id: "neon-pong",
+    title: "Neon Pong",
+    path: "games/neon-pong.html",
+    icon: "assets/images/neon-pong.webp",
+    version: "First upload",
+    description: "Paddle, ball, glow.",
+    tags: "Arcade, Action",
+    featured: true,
+    badge: "NEW",
+  });
+  const [game] = api.parseBlockText(block, "game");
+  assert.equal(game.id, "neon-pong");
+  assert.equal(game.title, "Neon Pong");
+  assert.equal(game.featured, true);
+  assert.deepEqual([...game.tags], ["Arcade", "Action"]);
+  // available defaults to ready, so the line is not written.
+  assert.ok(!block.includes("available"));
+});
+
+test("builder validation matches what the loader accepts", () => {
+  const { api } = loadArcade("", { storage: new Map() });
+  const taken = new Map([["neon-snake", "in the catalog"]]);
+  const bad = api.validateGameFields(
+    { id: "neon snake", title: "", path: "games/x.txt", icon: "art.txt" },
+    { takenIds: taken },
+  );
+  // Array.from: the builder lives in a VM realm, so rebuild a host array.
+  const fields = Array.from(bad, (item) => item.field);
+  assert.deepEqual(fields, ["id", "title", "path", "icon"]);
+  assert.match(bad[1].message, /title/);
+
+  const clash = api.validateGameFields(
+    { id: "neon-snake", title: "Copy", path: "games/copy.html" },
+    { takenIds: taken },
+  );
+  assert.equal(clash.length, 1);
+  assert.match(clash[0].message, /already used in the catalog/);
+
+  const ok = api.validateGameFields({
+    id: "neon-pong",
+    title: "Neon Pong",
+    path: "games/neon-pong.html",
+  });
+  assert.equal(ok.length, 0);
+});
+
+test("a saved draft becomes a playable library entry", async () => {
+  const store = new Map();
+  const { api } = loadArcade("", { storage: store });
+  assert.equal(
+    api.saveDraft(
+      api.buildGameBlock({
+        id: "neon-pong",
+        title: "Neon Pong",
+        path: "games/neon-pong.html",
+        tags: "Arcade",
+      }),
+    ),
+    true,
+  );
+  const { games, byId, problems } = await api.loadArcadeData();
+  assert.equal(games.length, 17);
+  assert.equal(problems.length, 0);
+  const draft = byId.get("neon-pong");
+  assert.equal(draft.draft, true);
+  assert.equal(draft.title, "Neon Pong");
+  assert.deepEqual(Array.from(draft.tags), ["Arcade"]);
+  // ...and it is last, after the catalog entries.
+  assert.equal(games[games.length - 1].id, "neon-pong");
+});
+
+test("saving a draft again replaces the earlier copy instead of duplicating it", async () => {
+  const store = new Map();
+  const { api } = loadArcade("", { storage: store });
+  const block = (title) =>
+    api.buildGameBlock({ id: "draft-one", title, path: "games/one.html" });
+  api.saveDraft(block("First"));
+  api.saveDraft(block("Second"));
+  assert.equal(api.draftBlocks().length, 1);
+  const { byId } = await api.loadArcadeData();
+  assert.equal(byId.get("draft-one").title, "Second");
+});
+
+test("a draft that reuses a catalog id is reported and the catalog wins", async () => {
+  const store = new Map();
+  const { api } = loadArcade("", { storage: store });
+  api.saveDraft(
+    api.buildGameBlock({ id: "neon-snake", title: "Sneaky copy", path: "games/copy.html" }),
+  );
+  const { games, byId, problems } = await api.loadArcadeData();
+  assert.equal(games.length, 16);
+  assert.equal(byId.get("neon-snake").title, "Neon Snake");
+  assert.equal(problems.length, 1);
+  assert.equal(problems[0].file, "your saved drafts");
+  assert.match(problems[0].message, /which the catalog already defines/);
+});
+
+test("a draft with no id is reported and skipped", async () => {
+  const store = new Map();
+  const { api } = loadArcade("", { storage: store });
+  api.saveDraft("[game]\ntitle=Who am I\npath=games/nobody.html\n");
+  const { games, problems } = await api.loadArcadeData();
+  assert.equal(games.length, 16);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0].message, /has no id= line/);
+});
+
+test("drafts are deletable and never touch the catalog", async () => {
+  const store = new Map();
+  const { api } = loadArcade("", { storage: store });
+  api.saveDraft(api.buildGameBlock({ id: "gone", title: "Gone", path: "games/gone.html" }));
+  assert.equal(api.deleteDraft("gone"), true);
+  assert.equal(api.draftBlocks().length, 0);
+  const { games } = await api.loadArcadeData();
+  assert.equal(games.length, 16);
+});
+
+test("a browser that blocks storage cannot silently claim a draft was saved", () => {
+  const { api } = loadArcade("", { storage: null });
+  assert.equal(
+    api.saveDraft(api.buildGameBlock({ id: "x", title: "X", path: "games/x.html" })),
+    false,
+  );
+  assert.deepEqual(Array.from(api.draftBlocks()), []);
+});
+
+test("a collection can list a game added on this device", async () => {
+  const store = new Map();
+  const { api } = loadArcadeWithText({
+    gamesText: "[game]\nid=kept\ntitle=Kept\npath=games/kept.html\n",
+    foldersText: "[folder]\nid=col\ntitle=Col\ngames=kept, neon-pong\n",
+    storage: store,
+  });
+  api.saveDraft(
+    api.buildGameBlock({
+      id: "neon-pong",
+      title: "Neon Pong",
+      path: "games/neon-pong.html",
+    }),
+  );
+  const { folders, byId, problems } = await api.loadArcadeData();
+  // The draft is in the library before folders are resolved, so the
+  // collection finds it and nothing is reported as missing.
+  assert.deepEqual(Array.from(folders[0].games), ["kept", "neon-pong"]);
+  assert.equal(byId.get("neon-pong").draft, true);
+  assert.equal(problems.length, 0);
 });

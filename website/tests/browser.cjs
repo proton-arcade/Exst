@@ -229,7 +229,9 @@ async function launch() {
       }
     }
     await goTab("about");
-    await expect(page.locator(".folder-links>a")).toHaveCount(4);
+    // #aboutFolders holds the collections; "Add a game" is a separate link
+    // that happens to share the same styling class.
+    await expect(page.locator("#aboutFolders>a")).toHaveCount(4);
     await page
       .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
       .click();
@@ -327,6 +329,75 @@ async function launch() {
       "\u2713 Catalog edits: broken files and duplicate ids are explained on screen",
     );
 
+    // Add a game from inside the site: it must be validated, saved, playable
+    // immediately, clearly marked as device-local, and removable.
+    await goto("/website/add.html");
+    await expect(page.locator("#blockPreview")).toContainText("[game]");
+    // The form refuses an id with a space, and says why.
+    await page.locator("#fieldId").fill("neon pong");
+    await page.locator("#fieldTitle").fill("Neon Pong");
+    await page.locator("#fieldPath").fill("games/neon-pong.html");
+    await expect(page.locator("#saveDraft")).toBeDisabled();
+    await expect(page.locator("#addNotice")).toContainText(
+      "cannot contain spaces",
+    );
+    // A usable id saves, and the page says exactly what happened.
+    await page.locator("#fieldId").fill("neon-pong");
+    await expect(page.locator("#fieldId")).not.toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await expect(page.locator("#addNotice")).not.toContainText("cannot contain");
+    await page.locator("#fieldIcon").fill("assets/images/default-game.svg");
+    await page.locator("#fieldTags").fill("Arcade, Action");
+    await page.locator("#fieldDescription").fill("Added from inside the site.");
+    await expect(page.locator("#saveDraft")).toBeEnabled();
+    await page.locator("#saveDraft").click();
+    await expect(page.locator("#saveStatus")).toContainText(
+      "Saved Neon Pong on this device",
+    );
+    await expect(page.locator("#draftList")).toContainText("Neon Pong");
+    await expect(page.locator("#draftCount")).toHaveText("1");
+    // The block it offers is the exact catalog text.
+    await expect(page.locator("#blockPreview")).toContainText("id=neon-pong");
+    await expect(page.locator("#blockPreview")).toContainText("tags=Arcade, Action");
+
+    // Home: the new game is in the library, badged as added on this device.
+    await goto("/");
+    await expect(page.locator("#row-all .movie")).toHaveCount(17);
+    await expect(
+      page.locator('#row-all [data-details="neon-pong"] .item-badge'),
+    ).toHaveText("DRAFT");
+    await expect(page.locator("#row-all")).toContainText("Neon Pong");
+    await page.locator('#row-all [data-details="neon-pong"]').click();
+    await expect(page.locator("#detailsDraftNote")).toBeVisible();
+    await expect(page.locator("#detailsDraftNote")).toContainText(
+      "Added on this device",
+    );
+    await page.locator("#detailsClose").click();
+    await goTab("search");
+    await page.locator("#searchInput").fill("neon-pong");
+    await expect(page.locator("#searchGrid .movie")).toHaveCount(1);
+    await page.locator("#searchInput").fill("");
+    await goTab("about");
+    await expect(page.locator("#draftCount")).toContainText(
+      "1 added on this device",
+    );
+    await expect(
+      page.locator('.folder-links a[href="website/add.html"]'),
+    ).toBeVisible();
+
+    // Removing it takes it back out of the library.
+    await goto("/website/add.html");
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.locator("[data-remove]").click();
+    await expect(page.locator("#draftCount")).toHaveText("0");
+    await expect(page.locator("#draftList")).toContainText("Nothing added here yet");
+    await goto("/");
+    await expect(page.locator("#row-all .movie")).toHaveCount(16);
+    console.log(
+      "\u2713 Adding a game inside the site: validated, saved, playable, badged and removable",
+    );
     // No-server proof: open the site straight from the filesystem.
     const filePage = await browser.newPage({
       viewport: { width: 1440, height: 1000 },

@@ -343,6 +343,193 @@
     );
   }
 
+  /* ----------------------------------------------------------------- drafts */
+
+  /**
+   * Games added from inside the site (website/add.html) are kept in local
+   * storage as their own `[game]` blocks — the exact text to paste into
+   * website/data/games.js when the entry should outlive this browser. A
+   * static site cannot write to its own files, so this is the honest
+   * middle ground: immediately usable, clearly labelled, never silently
+   * mistaken for a saved catalog edit.
+   */
+  const DRAFT_KEY = "exst-drafts";
+  const DRAFT_FILE = "your saved drafts";
+
+  /** Draft blocks saved on this device, oldest first. */
+  function draftBlocks() {
+    const value = storageGet(DRAFT_KEY, []);
+    if (!Array.isArray(value)) return [];
+    return value.filter((item) => typeof item === "string" && item.trim());
+  }
+
+  const BLOCK_FIELDS = [
+    "title",
+    "version",
+    "icon",
+    "path",
+    "description",
+    "tags",
+    "featured",
+    "badge",
+    "available",
+    "source",
+  ];
+
+  /** The `[game]` block for a set of fields, ready to paste or store. */
+  function buildGameBlock(fields = {}) {
+    const lines = ["[game]"];
+    if (String(fields.id || "").trim()) lines.push(`id=${String(fields.id).trim()}`);
+    BLOCK_FIELDS.forEach((key) => {
+      let value = fields[key];
+      if (value === undefined || value === null || value === "") return;
+      if (value === false && key !== "available") return;
+      if (Array.isArray(value)) {
+        const list = value.map((item) => String(item).trim()).filter(Boolean);
+        if (!list.length) return;
+        value = list.join(", ");
+      }
+      if (key === "tags" && typeof value === "string") {
+        const list = value
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+        if (!list.length) return;
+        value = list.join(", ");
+      }
+      lines.push(`${key}=${value === true ? "true" : value}`);
+    });
+    return lines.join("\n") + "\n";
+  }
+
+  /**
+   * Check builder input the same way the catalog is checked when it loads,
+   * so a draft cannot be stored in a state the site would then refuse.
+   * `takenIds` maps an id to where it already lives (for example
+   * "in the catalog" or "in another draft").
+   */
+  function validateGameFields(fields = {}, options = {}) {
+    const found = [];
+    const add = (field, message) => found.push({ field, message });
+    const takenIds = options.takenIds || new Map();
+
+    const id = String(fields.id || "").trim();
+    if (!id) {
+      add("id", "Give the game an id: a short unique name used in links, like neon-pong.");
+    } else {
+      if (/\s/.test(id))
+        add("id", "The id cannot contain spaces — use dashes instead (neon-pong).");
+      if (/["'`#=,]/.test(id))
+        add(
+          "id",
+          "The id cannot contain quotes, backticks, commas, hash or equals signs — the catalog file uses those.",
+        );
+      const taken = takenIds.get(id) || takenIds.get(id.toLowerCase());
+      if (taken) add("id", `id=${id} is already used ${taken}.`);
+    }
+
+    if (!String(fields.title || "").trim())
+      add("title", "Give the game a title — that is what players see.");
+
+    const path = String(fields.path || "").trim();
+    if (!path)
+      add(
+        "path",
+        "Point path= at the game file, relative to the website/ folder (for example games/my-game.html).",
+      );
+    else if (/[\\"'`]/.test(path))
+      add("path", "The path cannot contain quotes or backslashes.");
+    else if (
+      !/^https?:\/\//i.test(path) &&
+      !/\.html?([?#].*)?$/i.test(path)
+    )
+      add("path", "The path must end in .html or .htm (or be a full https:// URL).");
+
+    const icon = String(fields.icon || "").trim();
+    if (icon && !/\.(png|jpe?g|webp|svg|gif|avif)([?#].*)?$/i.test(icon))
+      add(
+        "icon",
+        "The artwork should be an image file (png, webp, jpg, svg) — leave it blank for the default icon.",
+      );
+
+    return found;
+  }
+
+  /** Add (or replace) a draft block. False when the browser will not store it. */
+  function saveDraft(block) {
+    const text = String(block || "").trim();
+    if (!text) return false;
+    const [parsed] = parseText(text, "game", DRAFT_FILE, null);
+    const id = parsed ? String(parsed.id || "").trim() : "";
+    const blocks = draftBlocks().filter((item) => {
+      if (!id) return true;
+      const [existing] = parseText(item, "game", DRAFT_FILE, null);
+      return !existing || String(existing.id || "").trim() !== id;
+    });
+    return storageSet(DRAFT_KEY, [...blocks, text + "\n"]);
+  }
+
+  /** Remove the draft with this id. */
+  function deleteDraft(id) {
+    const wanted = String(id || "").trim();
+    const kept = draftBlocks().filter((item) => {
+      const [parsed] = parseText(item, "game", DRAFT_FILE, null);
+      return !parsed || String(parsed.id || "").trim() !== wanted;
+    });
+    return storageSet(DRAFT_KEY, kept);
+  }
+
+  /** Drafts as playable entries, checked like everything else. */
+  function loadDrafts(problems, byId) {
+    const drafts = [];
+    draftBlocks().forEach((text, index) => {
+      const items = parseText(text, "game", DRAFT_FILE, null).filter(
+        (item) => item.type === "game",
+      );
+      items.forEach((item) => {
+        const game = normalizeGame(item);
+        game.draft = true;
+        if (!game.id) {
+          problems.push(
+            problem(
+              DRAFT_FILE,
+              0,
+              `Draft ${index + 1} has no id= line, so it was skipped.`,
+              "Open website/add.html to give it an id, or delete the draft.",
+            ),
+          );
+          return;
+        }
+        if (byId.has(game.id)) {
+          const existing = byId.get(game.id);
+          problems.push(
+            problem(
+              DRAFT_FILE,
+              0,
+              `Draft “${game.title}” uses id=${game.id}, which the catalog already defines${
+                existing.line ? ` on line ${existing.line}` : ""
+              } — the catalog entry is used instead.`,
+              "Give the draft a different id, or delete it.",
+            ),
+          );
+          return;
+        }
+        if (!game.path || game.path === "#") {
+          problems.push(
+            problem(
+              DRAFT_FILE,
+              0,
+              `Draft “${game.title}” has no path= line, so it cannot launch.`,
+              "Open website/add.html and point it at the game file.",
+            ),
+          );
+        }
+        drafts.push(game);
+      });
+    });
+    return drafts;
+  }
+
   /* ------------------------------------------------------------- normalizers */
 
   function normalizeGame(game) {
@@ -521,6 +708,12 @@
     const problems = [];
     const games = loadGames(problems);
     const byId = new Map(games.map((game) => [game.id, game]));
+    // Games added from inside the site are part of the library too, so a
+    // collection may list them and search finds them.
+    loadDrafts(problems, byId).forEach((draft) => {
+      games.push(draft);
+      byId.set(draft.id, draft);
+    });
     const folders = loadFolders(problems, byId);
     report(problems);
     // Also reachable as window.EXST_CATALOG_PROBLEMS for debugging.
@@ -651,6 +844,12 @@
     storageGet,
     storageSet,
     storageNoticeText,
+    draftBlocks,
+    buildGameBlock,
+    validateGameFields,
+    saveDraft,
+    deleteDraft,
+    draftFile: DRAFT_FILE,
     gameUrl,
     homeUrl,
     getOpenMode,

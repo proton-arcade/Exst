@@ -76,7 +76,9 @@
     if (!isAvailable(game)) {
       showInfo(
         "This game needs its files",
-        `<p>${escape(game.title)} is a starter entry in your editable library. Its playable build hasn’t been added yet.</p><p>Put your licensed game files at <code>${escape(asset(game.path))}</code>, then remove the <code>available=false</code> line from its entry in <code>website/data/games.js</code>.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original</button>`,
+        game.draft
+          ? `<p>${escape(game.title)} was added on this device, but its file is not in place yet.</p><p>Put the game at <code>${escape(asset(game.path))}</code> (relative to the <code>website/</code> folder), then open <a href="${escape(asset("add.html"))}">Add a game</a> and untick “The game file is not in place yet”.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original</button>`
+          : `<p>${escape(game.title)} is a starter entry in your editable library. Its playable build hasn’t been added yet.</p><p>Put your licensed game files at <code>${escape(asset(game.path))}</code>, then remove the <code>available=false</code> line from its entry in <code>website/data/games.js</code>.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original</button>`,
       );
       $("tryOriginal").onclick = () => {
         $("infoDialog").close();
@@ -116,14 +118,18 @@
 
   function poster(game) {
     const available = isAvailable(game);
-    const badge = available ? game.badge : "SETUP";
+    // A game added from inside the site says so on its poster, so it is never
+    // mistaken for a catalog entry that would survive clearing browser data.
+    const badge = game.draft ? "DRAFT" : available ? game.badge : "SETUP";
     return (
       `<div class="movie">` +
       `<button class="item${available ? "" : " is-setup"}" data-details="${escape(game.id)}" ` +
       `style="background-image:url('${escape(asset(game.icon))}')" ` +
       `aria-label="${available ? "View" : "Set up"} ${escape(game.title)}" title="${escape(game.title)}">` +
       (badge
-        ? `<span class="item-badge${available ? "" : " setup"}">${escape(badge)}</span>`
+        ? `<span class="item-badge${available ? "" : " setup"}${
+            game.draft ? " draft" : ""
+          }">${escape(badge)}</span>`
         : "") +
       `<span class="item-label">${escape(game.title)}</span>` +
       `</button></div>`
@@ -228,7 +234,9 @@
       return false;
     if (
       query &&
-      !`${game.title} ${game.description} ${game.tags.join(" ")}`
+      // The id is searchable too: it is what the catalog file and URLs use,
+      // so "neon-pong" should find "Neon Pong".
+      !`${game.title} ${game.id} ${game.description} ${(game.tags || []).join(" ")}`
         .toLowerCase()
         .includes(query.toLowerCase())
     )
@@ -296,6 +304,12 @@
       Object.values(plays).reduce((a, b) => a + (Number(b) || 0), 0),
     );
     $("favoriteCount").textContent = String(favorites.length);
+    const drafts = data.games.filter((game) => game.draft).length;
+    const draftCount = $("draftCount");
+    if (draftCount)
+      draftCount.textContent = drafts
+        ? `${drafts} added on this device →`
+        : "0 added on this device →";
     renderCatalogStatus();
     $("aboutFolders").innerHTML = data.folders
       .map(
@@ -419,6 +433,15 @@
       .join("");
     $("detailsPlay").dataset.play = game.id;
     $("detailsDirect").href = asset(game.path);
+    const draftNote = $("detailsDraftNote");
+    if (draftNote) {
+      draftNote.hidden = !game.draft;
+      draftNote.innerHTML = game.draft
+        ? `<strong>Added on this device.</strong> Open <a href="${escape(
+            asset("add.html"),
+          )}">Add a game</a> to copy its catalog block into <code>website/data/games.js</code> — that is what makes it permanent and visible to everyone.`
+        : "";
+    }
     const panel = $("detailsPage");
     panel.hidden = false;
     requestAnimationFrame(() => panel.classList.add("open"));
