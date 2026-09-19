@@ -113,28 +113,220 @@ function loadArcadeWithText({
 const GAME = (id, extra = "") =>
   `[game]\nid=${id}\ntitle=${id}\npath=games/${id}.html\n${extra}`;
 
-test("text parser supports comments, quotes, booleans and tag arrays", () => {
+test("the shipped catalog is empty, and loads without any fetch", async () => {
   const { api } = loadArcade("");
-  const [game] = api.parseBlockText(
-    '[game]\nid=test # comment\ntitle="A # title"\nfeatured=true\ntags=Puzzle, Arcade',
-  );
-  assert.equal(game.id, "test");
-  assert.equal(game.title, "A # title");
-  assert.equal(game.featured, true);
-  assert.deepEqual([...game.tags], ["Puzzle", "Arcade"]);
+  const { games, folders, byId, problems } = await api.loadArcadeData();
+  assert.equal(games.length, 0);
+  assert.equal(folders.length, 0);
+  assert.equal(byId.size, 0);
+  assert.deepEqual(Array.from(problems), []);
 });
 
-test("catalog loads without any fetch (file:// friendly)", async () => {
-  const { api } = loadArcade("");
-  const { games, folders, byId } = await api.loadArcadeData();
-  assert.equal(games.length, 16);
-  assert.equal(folders.length, 4);
-  assert.ok(byId.get("neon-drift"));
-  // Array.from: the catalog lives in a VM realm, so rebuild a host array.
+test("every removed feature file is gone, and no page mentions them", () => {
+  const gone = [
+    "website/games/arcade.html",
+    "website/games/fnaf.html",
+    "website/games/backrooms.html",
+    "website/games/paper-io-2.htm",
+    "website/assets/js/minigames.js",
+    "website/assets/js/app.js",
+    "website/assets/css/minigames.css",
+    "website/assets/images/2048.webp",
+    "website/assets/images/neon-drift.webp",
+    "website/assets/images/neon-drift-hero.webp",
+    "website/assets/images/neon-snake.webp",
+    "website/assets/images/cosmic-escape.webp",
+    "website/assets/images/memory-match.webp",
+    "website/assets/images/brick-breaker.webp",
+    "website/assets/images/fnaf.svg",
+    "website/assets/images/backrooms.svg",
+    "website/assets/images/paper-io-2.svg",
+    "website/assets/images/m-logo1.svg",
+    "website/assets/images/m-logo2.svg",
+    "website/assets/images/m-logo11.svg",
+  ];
+  for (const file of gone)
+    assert.equal(fs.existsSync(path.join(root, file)), false, file);
+
+  // Nothing that ships may still reference the removed games, the old
+  // original-game engine, or the placeholder launcher slots.
+  const forbidden = [
+    /arcade original/i,
+    /minigames\.(js|css)/i,
+    /games\/arcade\.html/i,
+    /arcade\.html\?game=/i,
+    /neon[-\s]?(drift|snake)/i,
+    /cosmic[-\s]escape/i,
+    /brick[-\s]breaker/i,
+    /memory[-\s]match/i,
+    /paper[-\s]io/i,
+    /\bfnaf\b/i,
+    /backrooms/i,
+    /m-logo/i,
+  ];
+  const extensions = [".html", ".js", ".css", ".cjs", ".json", ".md", ".txt"];
+  const skip = new Set([
+    ".git",
+    "node_modules",
+    ".test-artifacts",
+    path.basename(__filename),
+  ]);
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (skip.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (extensions.includes(path.extname(entry.name))) {
+        const source = fs.readFileSync(full, "utf8");
+        for (const pattern of forbidden)
+          assert.equal(
+            pattern.test(source),
+            false,
+            `${path.relative(root, full)} still matches ${pattern}`,
+          );
+      }
+    }
+  };
+  walk(root);
+});
+
+test("the games folder is kept with instructions for dropping games in", () => {
+  const readme = path.join(site, "games/README.md");
+  assert.ok(fs.existsSync(readme));
+  assert.match(fs.readFileSync(readme, "utf8"), /data\/games\.js/);
+});
+
+test("a hero=true game is what the spotlight carousel cycles", async () => {
+  const gamesText = `
+[game]
+id=first
+title=First
+path=games/first.html
+featured=true
+
+[game]
+id=second
+title=Second
+path=games/second.html
+hero=true
+
+[game]
+id=third
+title=Third
+path=games/third.html
+hero=true
+heroart=assets/images/third-hero.webp
+`;
+  const { api } = loadArcadeWithText({ gamesText });
+  const { games, byId } = await api.loadArcadeData();
+  assert.equal(games.length, 3);
+  assert.equal(byId.get("second").hero, true);
+  assert.equal(byId.get("first").hero, false);
+  assert.equal(byId.get("third").heroart, "assets/images/third-hero.webp");
+
+  // hero=true games win, in catalog order.
   assert.deepEqual(
-    Array.from(folders.map((f) => f.id)).sort(),
-    ["arcade", "featured", "horror", "minecraft"],
+    Array.from(api.spotlightGames(games, null).map((g) => g.id)),
+    ["second", "third"],
   );
+  // A saved order from the home page takes precedence, order and all.
+  assert.deepEqual(
+    Array.from(api.spotlightGames(games, ["third", "first"]).map((g) => g.id)),
+    ["third", "first"],
+  );
+  // Stale saved ids are dropped instead of breaking the carousel.
+  assert.deepEqual(
+    Array.from(api.spotlightGames(games, ["gone", "first"]).map((g) => g.id)),
+    ["first"],
+  );
+});
+
+test("without hero games the carousel falls back to featured, then to six", async () => {
+  const { api } = loadArcadeWithText({ gamesText: `
+[game]
+id=a
+title=A
+path=games/a.html
+featured=true
+
+[game]
+id=b
+title=B
+path=games/b.html
+`,
+  });
+  const { games } = await api.loadArcadeData();
+  assert.deepEqual(
+    Array.from(api.spotlightGames(games, []).map((g) => g.id)),
+    ["a"],
+  );
+
+  const many = Array.from({ length: 9 }, (_, i) => ({
+    id: `g${i}`,
+    title: `G${i}`,
+  }));
+  assert.equal(api.spotlightGames(many, []).length, 6);
+});
+
+test("the spotlight art falls back from heroart to the card icon", async () => {
+  const { api } = loadArcade("");
+  assert.equal(
+    api.spotlightArt({ id: "x", icon: "assets/images/x.webp" }),
+    "assets/images/x.webp",
+  );
+  assert.equal(
+    api.spotlightArt({
+      id: "x",
+      icon: "assets/images/x.webp",
+      heroart: "assets/images/x-wide.webp",
+    }),
+    "assets/images/x-wide.webp",
+  );
+});
+
+test("retired fields and dangling folder ids are reported, not swallowed", async () => {
+  const { api } = loadArcadeWithText({ gamesText: `
+[game]
+id=old
+title=Old
+path=games/old.html
+original=true
+available=false
+`,
+    foldersText: `
+[folder]
+id=mixed
+title=Mixed
+games=old, ghost
+`,
+  });
+  const { problems } = await api.loadArcadeData();
+  const report = Array.from(problems, (p) => p.message).join(" ");
+  assert.match(report, /original/);
+  assert.match(report, /available/);
+  assert.match(report, /ghost/);
+});
+
+test("a folder block that points at real games is accepted", async () => {
+  const { api } = loadArcadeWithText({ gamesText: `
+[game]
+id=one
+title=One
+path=games/one.html
+`,
+    foldersText: `
+[folder]
+id=shelf
+title=Shelf
+description=One game on a shelf.
+games=one
+`,
+  });
+  const { folders, byId, problems } = await api.loadArcadeData();
+  assert.equal(folders.length, 1);
+  assert.deepEqual(Array.from(folders[0].games), ["one"]);
+  assert.ok(byId.has("one"));
+  assert.deepEqual(Array.from(problems), []);
 });
 
 test("all catalog IDs are unique", async () => {
@@ -143,35 +335,11 @@ test("all catalog IDs are unique", async () => {
   assert.equal(new Set(games.map((g) => g.id)).size, games.length);
 });
 
-test("six originals have actual local game files and artwork", async () => {
-  const { api } = loadArcade("");
-  const { games } = await api.loadArcadeData();
-  const originals = games.filter((g) => g.original);
-  assert.equal(originals.length, 6);
-  for (const game of originals) {
-    assert.equal(game.available, true);
-    assert.ok(
-      fs.existsSync(path.join(site, game.path.split("?")[0])),
-      `${game.id}: missing ${game.path}`,
-    );
-    assert.ok(
-      fs.existsSync(path.join(site, game.icon)),
-      `${game.id}: missing ${game.icon}`,
-    );
-  }
-});
-
-test("starter game entries are explicitly marked unavailable", async () => {
-  const { api } = loadArcade("");
-  const { games } = await api.loadArcadeData();
-  const starters = games.filter((g) => !g.original);
-  assert.ok(starters.length >= 10);
-  starters.forEach((g) => assert.equal(g.available, false, g.id));
-});
-
 test("all configured folder references resolve", async () => {
   const { api } = loadArcade("");
-  const { folders, byId } = await api.loadArcadeData();
+  const { games, folders, byId } = await api.loadArcadeData();
+  assert.equal(games.length, 0);
+  assert.equal(folders.length, 0);
   for (const folder of folders)
     for (const id of folder.games)
       assert.ok(byId.has(id), `${folder.id}: ${id}`);
@@ -219,20 +387,6 @@ test("HTML escaping covers attributes and markup", () => {
     api.escapeHtml('<a title="x">\'&'),
     "&lt;a title=&quot;x&quot;&gt;&#39;&amp;",
   );
-});
-
-test("all original game IDs have a playable engine", async () => {
-  const engine = fs.readFileSync(
-    path.join(site, "assets/js/minigames.js"),
-    "utf8",
-  );
-  const { api } = loadArcade("");
-  const { games } = await api.loadArcadeData();
-  for (const game of games.filter((g) => g.original))
-    assert.ok(
-      engine.includes(`"${game.id}":`) || engine.includes(`    ${game.id}:`),
-      game.id,
-    );
 });
 
 test("no page fetches the catalog at runtime", () => {
@@ -339,14 +493,6 @@ test("a catalog file that cannot run throws an explained error", async () => {
   );
 });
 
-test("a catalog with no [game] entries throws instead of showing an empty arcade", async () => {
-  const { api } = loadArcadeWithText({ gamesText: "# nothing here yet\n" });
-  await assert.rejects(
-    () => api.loadArcadeData(),
-    /no \[game\] entries were found/,
-  );
-});
-
 test("a missing folders file is a problem, not a fatal error", async () => {
   const { api } = loadArcadeWithText({
     gamesText: GAME("solo"),
@@ -407,8 +553,8 @@ test("storage helpers report availability and never throw", () => {
 test("a blocked storage does not break catalog loading or the open mode", async () => {
   const { api } = loadArcade("", { storage: null });
   const { games, folders } = await api.loadArcadeData();
-  assert.equal(games.length, 16);
-  assert.equal(folders.length, 4);
+  assert.equal(games.length, 0);
+  assert.equal(folders.length, 0);
   assert.equal(api.getOpenMode(), "page");
 });
 
@@ -446,8 +592,9 @@ test("the builder block round-trips through the parser", () => {
   assert.equal(game.title, "Neon Pong");
   assert.equal(game.featured, true);
   assert.deepEqual([...game.tags], ["Arcade", "Action"]);
-  // available defaults to ready, so the line is not written.
+  // Blank fields are omitted instead of written as empty lines.
   assert.ok(!block.includes("available"));
+  assert.ok(!block.includes("hero="));
 });
 
 test("builder validation matches what the loader accepts", () => {
@@ -492,7 +639,7 @@ test("a saved draft becomes a playable library entry", async () => {
     true,
   );
   const { games, byId, problems } = await api.loadArcadeData();
-  assert.equal(games.length, 17);
+  assert.equal(games.length, 1);
   assert.equal(problems.length, 0);
   const draft = byId.get("neon-pong");
   assert.equal(draft.draft, true);
@@ -516,13 +663,17 @@ test("saving a draft again replaces the earlier copy instead of duplicating it",
 
 test("a draft that reuses a catalog id is reported and the catalog wins", async () => {
   const store = new Map();
-  const { api } = loadArcade("", { storage: store });
+  const { api } = loadArcadeWithText({
+    gamesText: GAME("neon-snake"),
+    foldersText: "# no collections yet\n",
+    storage: store,
+  });
   api.saveDraft(
     api.buildGameBlock({ id: "neon-snake", title: "Sneaky copy", path: "games/copy.html" }),
   );
   const { games, byId, problems } = await api.loadArcadeData();
-  assert.equal(games.length, 16);
-  assert.equal(byId.get("neon-snake").title, "Neon Snake");
+  assert.equal(games.length, 1);
+  assert.equal(byId.get("neon-snake").title, "neon-snake");
   assert.equal(problems.length, 1);
   assert.equal(problems[0].file, "your saved drafts");
   assert.match(problems[0].message, /which the catalog already defines/);
@@ -533,7 +684,7 @@ test("a draft with no id is reported and skipped", async () => {
   const { api } = loadArcade("", { storage: store });
   api.saveDraft("[game]\ntitle=Who am I\npath=games/nobody.html\n");
   const { games, problems } = await api.loadArcadeData();
-  assert.equal(games.length, 16);
+  assert.equal(games.length, 0);
   assert.equal(problems.length, 1);
   assert.match(problems[0].message, /has no id= line/);
 });
@@ -545,7 +696,7 @@ test("drafts are deletable and never touch the catalog", async () => {
   assert.equal(api.deleteDraft("gone"), true);
   assert.equal(api.draftBlocks().length, 0);
   const { games } = await api.loadArcadeData();
-  assert.equal(games.length, 16);
+  assert.equal(games.length, 0);
 });
 
 test("a browser that blocks storage cannot silently claim a draft was saved", () => {

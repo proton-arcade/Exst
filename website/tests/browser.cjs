@@ -1,4 +1,9 @@
-/* Run with npm start in another terminal, then npm run test:browser. */
+/* Run with npm start in another terminal, then npm run test:browser.
+ *
+ * The site ships with an empty library, so the suite drops a temporary demo
+ * catalog into the page contexts it needs. The shipped empty state gets its
+ * own checks at the end.
+ */
 const { chromium, expect } = require("@playwright/test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -7,6 +12,65 @@ const os = require("node:os");
 const { execFileSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..", ".."); // repository root
+const site = path.join(root, "website");
+const demoFile = path.join(site, "games/test-demo.html");
+
+const DEMO_CATALOG = `
+# Three games plus one whose file is missing, for the player fallback.
+[game]
+id=demo-one
+title=Demo One
+path=games/test-demo.html
+description=First demo game.
+tags=Puzzle, Arcade
+featured=true
+hero=true
+
+[game]
+id=demo-two
+title=Demo Two
+path=games/test-demo.html
+description=Second demo game.
+tags=Action
+hero=true
+
+[game]
+id=demo-three
+title=Demo Three
+path=games/test-demo.html
+description=Third demo game.
+tags=Racing
+
+[game]
+id=demo-missing
+title=Demo Missing
+path=games/does-not-exist.html
+description=Points at a file that is not there.
+`;
+
+const DEMO_FOLDERS = `
+[folder]
+id=demo-shelf
+title=Demo shelf
+description=Two of the demo games.
+icon=assets/images/folder.svg
+games=demo-one, demo-two
+`;
+
+// The page's data/games.js assigns window.EXST_GAMES_TEXT. These pages keep a
+// getter that ignores that assignment, so the demo catalog is what loads.
+const INJECT = ([games, folders]) => {
+  Object.defineProperty(window, "EXST_GAMES_TEXT", {
+    configurable: true,
+    get: () => games,
+    set: () => {},
+  });
+  Object.defineProperty(window, "EXST_FOLDERS_TEXT", {
+    configurable: true,
+    get: () => folders,
+    set: () => {},
+  });
+};
 
 async function launch() {
   try {
@@ -34,17 +98,31 @@ async function launch() {
 
 (async () => {
   const browser = await launch();
-  try {
-    const page = await browser.newPage({
-      viewport: { width: 1440, height: 1000 },
-    });
-    const errors = [],
-      broken = [];
+  const errors = [];
+  const broken = [];
+  const watch = (page) => {
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("response", (r) => {
-      if (r.status() >= 400) broken.push(`${r.status()} ${r.url()}`);
+      // One demo entry deliberately points at a missing file.
+      if (r.status() >= 400 && !r.url().includes("games/does-not-exist.html"))
+        broken.push(`${r.status()} ${r.url()}`);
     });
+    return page;
+  };
+  fs.writeFileSync(
+    demoFile,
+    '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Demo game</title></head>' +
+      '<body><h1 id="demo">Demo game running</h1></body></html>\n',
+  );
+
+  try {
     const base = process.env.TEST_URL || "http://127.0.0.1:3000";
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+      permissions: ["clipboard-read", "clipboard-write"],
+    });
+    await context.addInitScript(INJECT, [DEMO_CATALOG, DEMO_FOLDERS]);
+    const page = watch(await context.newPage());
     const goto = async (route) => {
       await page.goto(base + route);
     };
@@ -53,159 +131,140 @@ async function launch() {
     };
     const goTab = async (ref) => goTabOn(page, ref);
 
-    // Netflix-style home: hero cover + originals row + red logo.
+    // Home: hero carousel from hero=true, poster rows, red logo.
     await goto("/");
-    await expect(page.locator("#row-originals .movie")).toHaveCount(6);
-    await expect(page.locator(".logo")).toHaveCSS(
-      "color",
-      "rgb(221, 53, 50)",
-    );
-    await expect(page.locator(".hero-title")).not.toBeEmpty();
-    await expect(page.locator("#page-home")).toBeVisible();
+    await expect(page.locator(".hero-title")).toHaveText("Demo One");
+    await expect(page.locator("#heroDots [data-slide]")).toHaveCount(2);
+    await expect(page.locator("#row-top .movie")).toHaveCount(1);
+    await expect(page.locator("#row-all .movie")).toHaveCount(4);
+    await expect(page.locator("#row-folder-demo-shelf .movie")).toHaveCount(2);
+    await expect(page.locator(".logo")).toHaveCSS("color", "rgb(221, 53, 50)");
+    await expect(page.locator("#heroEdit")).toBeVisible();
 
-    // Details slide-in + My List favorites with reload persistence.
-    await page.locator('#row-originals [data-details="neon-snake"]').click();
-    await expect(page.locator("#detailsPage")).toBeVisible();
-    await expect(page.locator("#detailsTitle")).toHaveText("Neon Snake");
-    await page.locator("#detailsFooterFav").click();
-    await page.locator("#detailsClose").click();
-    await expect(page.locator("#row-mylist .movie")).toHaveCount(1);
-    await goTab("about");
-    await expect(page.locator("#favoriteCount")).toHaveText("1");
-    await goTab("home");
+    // The carousel cycles through the games marked hero=true.
+    await page.locator('#heroDots [data-slide="1"]').click();
+    await expect(page.locator(".hero-title")).toHaveText("Demo Two");
+
+    // Spotlight editor: tick a game, reorder it, save, and keep it on reload.
+    await page.locator("#heroEdit").click();
+    await expect(page.locator("#spotlightDialog")).toBeVisible();
+    await expect(page.locator(".spot-row")).toHaveCount(4);
+    await page.locator("[data-spot-toggle='2']").check();
+    await page.locator("[data-spot-up='2']").click();
+    await page.locator("[data-spot-up='1']").click();
+    await expect(
+      page.locator(".spot-row").first().locator(".spot-title"),
+    ).toHaveText("Demo Three");
+    await page.locator("[data-spot-save]").click();
+    await expect(page.locator("#spotlightDialog")).toBeHidden();
+    assert.deepEqual(
+      await page.evaluate(() => JSON.parse(localStorage.getItem("exst-hero-ids"))),
+      ["demo-three", "demo-one", "demo-two"],
+    );
+    await expect(page.locator(".hero-title")).toHaveText("Demo Three");
+    await expect(page.locator("#heroDots [data-slide]")).toHaveCount(3);
     await page.reload();
-    await expect(page.locator("#row-mylist .movie .item-label")).toHaveText(
-      "Neon Snake",
-    );
-    await page.locator('#row-mylist [data-details="neon-snake"]').click();
-    await page.locator("#detailsFooterFav").click();
-    await page.locator("#detailsClose").click();
-    await expect(page.locator("#row-mylist")).toBeHidden();
+    await expect(page.locator(".hero-title")).toHaveText("Demo Three");
+    await expect(page.locator("#heroDots [data-slide]")).toHaveCount(3);
 
-    // Search tab: live results, empty states, categories, sorting.
+    // Copy out: a ready-to-paste catalog in the chosen order.
+    await page.locator("#heroEdit").click();
+    await page.locator("[data-spot-copy]").click();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    assert.ok(copied.includes("window.EXST_GAMES_TEXT"));
+    assert.ok(copied.includes("hero=true"));
+    assert.ok(
+      copied.indexOf("id=demo-three") < copied.indexOf("id=demo-one"),
+      "copied catalog should keep the spotlight order",
+    );
+
+    // Reset drops the local choice and returns to the catalog order.
+    await page.locator("[data-spot-reset]").click();
+    await expect(page.locator(".hero-title")).toHaveText("Demo One");
+    await expect(page.locator("#heroDots [data-slide]")).toHaveCount(2);
+    await page.locator("#closeSpotlight").click();
+
+    // Search tab: live results, empty state, categories, sorting.
     await goTab("search");
-    await page.locator("#searchInput").fill("snake");
+    await page.locator("#searchInput").fill("demo two");
     await expect(page.locator("#searchGrid .movie")).toHaveCount(1);
     await page.locator("#searchInput").fill("no-such-game");
     await expect(page.locator("#searchEmpty")).toBeVisible();
     await page.locator("#searchInput").fill("");
-    await page.locator('[data-filter="Puzzle"]').click();
-    await expect(page.locator("#searchGrid .movie")).toHaveCount(2);
+    await page.locator('[data-filter="Racing"]').click();
+    await expect(page.locator("#searchGrid .movie")).toHaveCount(1);
     await page.locator('[data-filter="All"]').click();
     await page.locator("#sortSelect").selectOption("az");
     await expect(
       page.locator("#searchGrid .movie .item-label").first(),
-    ).toHaveText("2048");
-    await page.locator("#sortSelect").selectOption("popular");
+    ).toHaveText("Demo Missing");
 
-    // Hero carousel rotates the featured spotlight.
+    // Details slide-in plus My List, remembered after a reload.
+    await page.locator('#searchGrid [data-details="demo-one"]').click();
+    await expect(page.locator("#detailsPage")).toBeVisible();
+    await expect(page.locator("#detailsTitle")).toHaveText("Demo One");
+    await page.locator("#detailsFooterFav").click();
+    await page.locator("#detailsClose").click();
+    await page.reload();
     await goTab("home");
-    await page.locator('[data-slide="1"]').click();
-    await expect(page.locator(".hero-title")).toHaveText("Neon Snake");
+    await expect(page.locator("#row-mylist .movie")).toHaveCount(1);
+    await page.locator('#row-mylist [data-details="demo-one"]').click();
+    await page.locator("#detailsFooterFav").click();
+    await page.locator("#detailsClose").click();
+    await expect(page.locator("#row-mylist")).toBeHidden();
 
-    // Preferences persist the launch mode.
-    await goTab("about");
+    // The player embeds the game file.
+    await goto("/website/game.html?id=demo-one");
+    await expect(page.locator("#gameTitle")).toHaveText("Demo One");
+    await expect(page.locator("#gameFrame")).toBeVisible();
+    await expect(
+      page.frameLocator("#gameFrame").locator("#demo"),
+    ).toHaveText("Demo game running");
+
+    // A catalog entry whose file is missing explains itself.
+    await goto("/website/game.html?id=demo-missing");
+    await expect(page.locator("#gameFallback")).toBeVisible();
+    await expect(page.locator("#gameFallback h1")).toHaveText(
+      "That game file is missing",
+    );
+    await expect(page.locator("#missingPath")).toHaveText(
+      "games/does-not-exist.html",
+    );
+    await goto("/website/game.html?id=not-found");
+    await expect(page.locator(".frame-fallback h1")).toHaveText(
+      "Game could not load",
+    );
+
+    // Direct launch by path works, path traversal does not.
+    await goto("/website/game.html?path=games/test-demo.html");
+    await expect(page.locator("#gameTitle")).toHaveText("Test demo");
+    await expect(page.locator("#gameFrame")).toBeVisible();
+    await goto("/website/game.html?path=../../index.html");
+    await expect(page.locator(".frame-fallback h1")).toHaveText(
+      "Game could not load",
+    );
+
+    // Folder page: cards, launch mode, and the details panel from a poster.
+    await goto("/website/folder.html?id=demo-shelf");
+    await expect(page.locator("#folderTitle")).toHaveText("Demo shelf");
+    await expect(page.locator(".game-card")).toHaveCount(2);
     await page.locator("#openMode").selectOption("new");
-    assert.equal(
-      await page.evaluate(() => localStorage.getItem("exst-open-mode")),
-      "new",
+    await expect(page.locator(".play-link").first()).toHaveAttribute(
+      "target",
+      "_blank",
     );
     await page.locator("#openMode").selectOption("page");
+    await page.locator(".game-thumb").first().click();
+    await expect(page.locator("#detailsPage")).toBeVisible();
 
-    // Full library + setup-needed starter entries.
-    await goTab("search");
-    await expect(page.locator("#searchGrid .movie")).toHaveCount(16);
-    await page.locator('#searchGrid [data-details="fnaf"]').click();
-    await expect(page.locator("#dialogTitle")).toHaveText(
-      "This game needs its files",
-    );
-    await page.locator("#closeDialog").click();
-    console.log(
-      "✓ Search, categories, sorting, My List, carousel, preferences and setup states",
-    );
-
-    // Details Play launches the player; 2048 merges and scores.
-    await page.locator('#searchGrid [data-details="2048"]').click();
-    await page.locator("#detailsPlay").click();
-    await page.waitForURL("**/website/game.html?id=2048");
-    const frame = page.frameLocator("#gameFrame");
-    await frame.locator("#startButton").click();
-    await expect(frame.locator(".tile")).toHaveCount(16);
-    for (let i = 0; i < 6; i++)
-      for (const key of [
-        "ArrowLeft",
-        "ArrowDown",
-        "ArrowRight",
-        "ArrowUp",
-      ])
-        await page.keyboard.press(key);
-    assert.ok(Number(await frame.locator("#score").textContent()) > 0);
-    await page.locator("#backLink").click();
-    await goTab("notifications");
-    await expect(
-      page.locator("#recentRow .movie .item-label").first(),
-    ).toHaveText("2048");
-    console.log(
-      "✓ Game player, 2048 merge scoring, persistence and recently played",
-    );
-    for (const id of [
-      "neon-drift",
-      "neon-snake",
-      "cosmic-escape",
-      "memory-match",
-      "brick-breaker",
-    ]) {
-      await goto("/website/games/arcade.html?game=" + id);
-      await page.locator("#startButton").click();
-      await expect(page.locator("#overlay")).toBeHidden();
-      await page.locator("#pauseButton").click();
-      await expect(page.locator("#overlayTitle")).toHaveText(
-        "Take a breather.",
-      );
-      await page.locator("#startButton").click();
-      await expect(page.locator("#overlay")).toBeHidden();
-      if (id === "memory-match") {
-        await expect(page.locator(".memory-card")).toHaveCount(16);
-        await page.locator('[data-card="0"]').click();
-        await page.locator('[data-card="1"]').click();
-        await expect(page.locator("#controlHint")).toContainText("1 moves");
-      } else {
-        await page.keyboard.press("ArrowLeft");
-      }
-      await page.locator("#restartButton").click();
-      await expect(page.locator("#score")).toHaveText("0");
-      await page.locator("#pauseButton").click();
-      console.log("✓ " + id + " start, controls, pause, resume, restart");
-    }
-    // Solve Memory Match using only visible card information; verify a real win.
-    await goto("/website/games/arcade.html?game=memory-match");
-    await page.locator("#startButton").click();
-    const symbols = {};
-    for (let i = 0; i < 16; i += 2) {
-      for (const n of [i, i + 1]) {
-        await page.locator(`[data-card="${n}"]`).click();
-        symbols[n] = await page.locator(`[data-card="${n}"]`).textContent();
-      }
-      await page.waitForTimeout(900);
-    }
-    const groups = {};
-    for (const [i, symbol] of Object.entries(symbols))
-      (groups[symbol] ??= []).push(i);
-    for (const pair of Object.values(groups)) {
-      if (await page.locator(`[data-card="${pair[0]}"]`).isDisabled())
-        continue;
-      for (const i of pair) await page.locator(`[data-card="${i}"]`).click();
-    }
-    await expect(page.locator("#overlayTitle")).toHaveText("Nicely played.");
-    assert.ok(Number(await page.locator("#score").textContent()) >= 800);
-    console.log("✓ Memory Match complete win and high score");
+    // About: the spotlight shortcut and a clean catalog read-out.
     await goto("/");
-    await expect(page.locator("#row-originals .movie")).toHaveCount(6);
+    await goTab("about");
+    await expect(page.locator("#aboutFolders > a")).toHaveCount(1);
+    await expect(page.locator("#catalogStatus")).toContainText("read from");
+
+    // Responsive: no horizontal overflow at phone, tablet and desktop widths.
     fs.mkdirSync(path.join(root, ".test-artifacts"), { recursive: true });
-    await page.screenshot({
-      path: path.join(root, ".test-artifacts/desktop.png"),
-      fullPage: true,
-    });
     for (const width of [390, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       await page.waitForTimeout(260);
@@ -223,86 +282,70 @@ async function launch() {
         });
         await goTab("search");
         await expect(page.locator("#page-search")).toBeVisible();
-        await expect(page.locator("#page-home")).toBeHidden();
         await goTab("home");
-        await expect(page.locator("#page-home")).toBeVisible();
+        await page.locator("#heroEdit").click();
+        await expect(page.locator("#spotlightDialog")).toBeVisible();
+        await page.screenshot({
+          path: path.join(root, ".test-artifacts/spotlight-editor.png"),
+        });
+        await page.locator("#closeSpotlight").click();
       }
     }
-    await goTab("about");
-    // #aboutFolders holds the collections; "Add a game" is a separate link
-    // that happens to share the same styling class.
-    await expect(page.locator("#aboutFolders>a")).toHaveCount(4);
-    await page
-      .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
-      .click();
-    await expect(page.locator("#folderTitle")).toHaveText("Fast arcade rounds");
-    await expect(page.locator(".game-card")).toHaveCount(7);
-    await page.locator("#openMode").selectOption("new");
-    await expect(page.locator(".play-link").first()).toHaveAttribute(
-      "target",
-      "_blank",
-    );
-    await page.locator("#openMode").selectOption("page");
-    await page.locator(".play-link").first().click();
-    await expect(page.locator("#backLink")).toHaveAttribute(
-      "href",
-      "folder.html?id=arcade",
-    );
-    await goto("/website/game.html?id=fnaf");
-    await expect(page.locator("#gameFallback")).toBeVisible();
-    await expect(page.locator(".player-actions")).toBeHidden();
-    await goto("/website/game.html?id=not-found");
-    await expect(page.locator(".frame-fallback h1")).toHaveText(
-      "Game could not load",
-    );
-    await goto("/website/game.html?path=games/fnaf.html");
-    await expect(page.locator("#gameTitle")).toHaveText("Fnaf");
-    await expect(page.locator("#gameFrame")).toBeVisible();
-    await goto("/website/game.html?path=../../index.html");
-    await expect(page.locator(".frame-fallback h1")).toHaveText(
-      "Game could not load",
-    );
-    console.log(
-      "✓ Configured collections, folder launch modes, missing-game fallbacks",
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await goto("/");
+    await page.screenshot({
+      path: path.join(root, ".test-artifacts/desktop.png"),
+      fullPage: true,
+    });    console.log(
+      "✓ Carousel, spotlight editor, search, My List, player and collections",
     );
 
-    // A catalog edit is never silent: a clean library shows no notice...
-    await goto("/");
-    await expect(page.locator(".catalog-notice")).toHaveCount(0);
+    // A catalog edit is never silent. These pages keep the real catalog file,
+    // so a route can stand in for a hand-edited one.
+    const noticeContext = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+    });
+    const noticePage = watch(await noticeContext.newPage());
+
+    // ...a clean library shows no notice...
+    await noticePage.goto(base + "/");
+    await expect(noticePage.locator(".catalog-notice")).toHaveCount(0);
 
     // ...a recoverable mistake is listed with file + line and can be closed...
-    await page.route("**/website/data/games.js", (route) =>
+    await noticePage.route("**/website/data/games.js", (route) =>
       route.fulfill({
         contentType: "application/javascript",
         body:
-          "window.EXST_GAMES_TEXT = `\n[game]\nid=alpha\ntitle=Alpha\npath=games/arcade.html?game=neon-snake\n\n[game]\nid=alpha\ntitle=Alpha copy\npath=games/arcade.html?game=2048\n`;",
+          "window.EXST_GAMES_TEXT = `\n[game]\nid=alpha\ntitle=Alpha\npath=games/test-demo.html\n\n[game]\nid=alpha\ntitle=Alpha copy\npath=games/test-demo.html\n`;",
       }),
     );
-    await page.route("**/website/data/folders.js", (route) =>
+    await noticePage.route("**/website/data/folders.js", (route) =>
       route.fulfill({
         contentType: "application/javascript",
         body:
           "window.EXST_FOLDERS_TEXT = `\n[folder]\nid=one\ntitle=One\ngames=alpha\n`;",
       }),
     );
-    await goto("/");
-    await expect(page.locator(".catalog-notice")).toBeVisible();
-    await expect(page.locator(".catalog-notice")).toContainText("CATALOG CHECK");
-    await expect(page.locator(".catalog-notice")).toContainText(
+    await noticePage.goto(base + "/");
+    await expect(noticePage.locator(".catalog-notice")).toBeVisible();
+    await expect(noticePage.locator(".catalog-notice")).toContainText(
+      "CATALOG CHECK",
+    );
+    await expect(noticePage.locator(".catalog-notice")).toContainText(
       "id=alpha is already used on line 3",
     );
-    await expect(page.locator(".catalog-notice li").first()).toContainText(
+    await expect(noticePage.locator(".catalog-notice li").first()).toContainText(
       "line 8",
     );
-    await page.locator("[data-dismiss-notice]").click();
-    await expect(page.locator(".catalog-notice")).toHaveCount(0);
-    await page.unroute("**/website/data/games.js");
-    await page.unroute("**/website/data/folders.js");
+    await noticePage.locator("[data-dismiss-notice]").click();
+    await expect(noticePage.locator(".catalog-notice")).toHaveCount(0);
+    await noticePage.unroute("**/website/data/games.js");
+    await noticePage.unroute("**/website/data/folders.js");
 
     // ...and an unreadable catalog file is explained instead of leaving the
     // page stuck on "Loading…" with an empty arcade.
     const errorsBeforeBrokenCatalog = errors.length;
-    await page.route("**/website/data/games.js", (route) =>
+    await noticePage.route("**/website/data/games.js", (route) =>
       route.fulfill({
         contentType: "application/javascript",
         body:
@@ -311,19 +354,21 @@ async function launch() {
           "window.EXST_GAMES_TEXT = `\n[game]\nid=only-game\n`;\n\n[game]\nid=oops\ntitle=My Game\n",
       }),
     );
-    await goto("/");
-    await expect(page.locator("#heroTitle")).toHaveText(
+    await noticePage.goto(base + "/");
+    await expect(noticePage.locator("#heroTitle")).toHaveText(
       "The game library could not be read",
     );
-    await expect(page.locator(".hero-notice")).toContainText("closing backtick");
-    await expect(page.locator(".hero-notice")).toContainText(
+    await expect(noticePage.locator(".hero-notice")).toContainText(
+      "closing backtick",
+    );
+    await expect(noticePage.locator(".hero-notice")).toContainText(
       "website/data/games.js could not be read",
     );
     // The Play button cannot launch anything, so it is not offered.
-    await expect(page.locator(".hero-content .options")).toBeHidden();
-    await page.unroute("**/website/data/games.js");
-    await goto("/");
-    await expect(page.locator("#row-originals .movie")).toHaveCount(6);
+    await expect(noticePage.locator(".hero-content .options")).toBeHidden();
+    await noticePage.unroute("**/website/data/games.js");
+    await noticePage.goto(base + "/");
+    await expect(noticePage.locator("#row-empty")).toBeVisible();
     errors.length = errorsBeforeBrokenCatalog; // the broken file is the point of the test
     console.log(
       "\u2713 Catalog edits: broken files and duplicate ids are explained on screen",
@@ -364,7 +409,7 @@ async function launch() {
 
     // Home: the new game is in the library, badged as added on this device.
     await goto("/");
-    await expect(page.locator("#row-all .movie")).toHaveCount(17);
+    await expect(page.locator("#row-all .movie")).toHaveCount(5);
     await expect(
       page.locator('#row-all [data-details="neon-pong"] .item-badge'),
     ).toHaveText("DRAFT");
@@ -394,46 +439,100 @@ async function launch() {
     await expect(page.locator("#draftCount")).toHaveText("0");
     await expect(page.locator("#draftList")).toContainText("Nothing added here yet");
     await goto("/");
-    await expect(page.locator("#row-all .movie")).toHaveCount(16);
+    await expect(page.locator("#row-all .movie")).toHaveCount(4);
     console.log(
       "\u2713 Adding a game inside the site: validated, saved, playable, badged and removable",
     );
-    // No-server proof: open the site straight from the filesystem.
-    const filePage = await browser.newPage({
+
+    // The shipped state: an empty library that explains how to add a game.
+    const empty = watch(
+      await browser.newPage({ viewport: { width: 1440, height: 1000 } }),
+    );
+    await empty.goto(base + "/");
+    await expect(empty.locator(".hero-title")).toHaveText("Add your first game");
+    await expect(empty.locator("#heroHowTo")).toBeVisible();
+    await expect(empty.locator("#heroEdit")).toBeHidden();
+    await expect(empty.locator("#row-empty")).toBeVisible();
+    await empty.locator("[data-starter]").click();
+    await expect(empty.locator("#dialogTitle")).toHaveText("Add a game");
+    await expect(empty.locator(".starter-block")).toContainText("hero=true");
+    await empty.locator("#closeDialog").click();
+    await empty.locator('#footerBar [ref="search"]').click();
+    await expect(empty.locator("#searchCount")).toHaveText(
+      "0 games in the library",
+    );
+    await expect(empty.locator("#searchEmpty")).toBeVisible();
+    await empty.locator('#footerBar [ref="about"]').click();
+    await expect(empty.locator("#aboutFolders")).toContainText(
+      "No collections yet",
+    );
+    await expect(empty.locator("#catalogStatus")).toContainText(
+      "0 games and 0 collections",
+    );
+    // The About shortcut opens the same editor, which explains the empty file.
+    await empty.locator("#aboutSpotlight").click();
+    await expect(empty.locator("#spotlightContent")).toContainText(
+      "There are no games",
+    );
+    await empty.locator("#spotlightContent [data-starter]").click();
+    await expect(empty.locator("#dialogTitle")).toHaveText("Add a game");
+    await expect(empty.locator(".starter-block")).toContainText("[game]");
+    await empty.locator("#closeDialog").click();
+    await empty.locator("[data-spot-close]").click();
+    await expect(empty.locator("#page-about")).toBeVisible();
+    await empty.locator('#footerBar [ref="home"]').click();
+    await expect(empty.locator("#page-home")).toBeVisible();
+    await expect(empty.locator("#heroHowTo")).toBeVisible();
+    console.log("\u2713 Empty library: hero, rows, search and About all guide the way");
+
+    // No-server proof: the same pages, opened straight from the filesystem.
+    // (Closing extra pages kills the fallback Chromium used in sandboxes, so
+    // the file:// checks reuse the pages they open.)
+    const fileErrors = [];
+    empty.on("pageerror", (e) => fileErrors.push(e.message));
+    await empty.goto("file://" + path.join(root, "index.html"));
+    await expect(empty.locator(".hero-title")).toHaveText("Add your first game");
+    await expect(empty.locator("#row-empty")).toBeVisible();
+    await expect(empty.locator(".logo")).toBeVisible();
+    await empty.locator("#heroHowTo").click();
+    await expect(empty.locator("#dialogTitle")).toHaveText("Add a game");
+    await empty.locator("#closeDialog").click();
+    await empty.locator('#footerBar [ref="about"]').click();
+    await empty.locator("#aboutSpotlight").click();
+    await expect(empty.locator("#spotlightContent")).toContainText(
+      "There are no games",
+    );
+    await empty.locator("[data-spot-close]").click();
+    await empty.goto("file://" + path.join(root, "website/folder.html"));
+    await expect(empty.locator("#folderTitle")).toHaveText(
+      "Collection unavailable",
+    );
+
+    // ...and a library with games, still with no server: the player has to
+    // work from file:// too.
+    const fileContext = await browser.newContext({
       viewport: { width: 1440, height: 1000 },
     });
-    const fileErrors = [];
+    await fileContext.addInitScript(INJECT, [DEMO_CATALOG, DEMO_FOLDERS]);
+    const filePage = watch(await fileContext.newPage());
     filePage.on("pageerror", (e) => fileErrors.push(e.message));
     await filePage.goto("file://" + path.join(root, "index.html"));
-    await expect(filePage.locator("#row-originals .movie")).toHaveCount(6);
-    await filePage
-      .locator('#row-originals [data-details="neon-drift"]')
-      .click();
+    await expect(filePage.locator(".hero-title")).toHaveText("Demo One");
+    await expect(filePage.locator("#row-all .movie")).toHaveCount(4);
+    await filePage.locator('#row-all [data-details="demo-one"]').click();
     await filePage.locator("#detailsPlay").click();
-    await filePage.waitForURL(/game\.html\?id=neon-drift/);
-    await filePage
-      .frameLocator("#gameFrame")
-      .locator("#startButton")
-      .click();
-    await expect(filePage.frameLocator("#gameFrame").locator("#overlay")).toBeHidden();
+    await filePage.waitForURL(/game\.html\?id=demo-one/);
+    await expect(
+      filePage.frameLocator("#gameFrame").locator("#demo"),
+    ).toHaveText("Demo game running");
     await filePage.locator("#backLink").click();
     await filePage.waitForURL(/index\.html/);
-    await expect(filePage.locator("#row-originals .movie")).toHaveCount(6);
     await filePage.locator('#footerBar [ref="about"]').click();
-    await expect(filePage.locator("#catalogStatus")).toContainText(
-      "16 games and 4 collections read from website/data/games.js",
-    );
-    await filePage
-      .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
-      .click();
-    await expect(filePage.locator("#folderTitle")).toHaveText(
-      "Fast arcade rounds",
-    );
-    await filePage.close();
+    await expect(filePage.locator("#catalogStatus")).toContainText("read from");
+    await filePage.goto("file://" + path.join(root, "website/folder.html?id=demo-shelf"));
+    await expect(filePage.locator("#folderTitle")).toHaveText("Demo shelf");
     assert.deepEqual(fileErrors, [], "file:// JavaScript errors");
-    console.log(
-      "✓ No-server file:// run: dashboard, player and folder all work",
-    );
+    console.log("✓ No-server file:// run: home, spotlight dialog and folder");
 
     // The claim this whole suite exists to protect: edit the catalog on disk,
     // reload, and the new game is there — even over file:// with no server.
@@ -462,18 +561,18 @@ async function launch() {
         viewport: { width: 1440, height: 1000 },
       });
       await editPage.goto("file://" + path.join(editDir, "index.html"));
-      await expect(editPage.locator("#row-all .movie")).toHaveCount(17);
+      await expect(editPage.locator("#row-all .movie")).toHaveCount(1);
       await expect(
         editPage.locator("#row-all .item-label", { hasText: "My Test Game" }),
       ).toHaveCount(1);
       await expect(editPage.locator(".catalog-notice")).toHaveCount(0);
       await editPage.locator('#footerBar [ref="about"]').click();
       await expect(editPage.locator("#catalogStatus")).toContainText(
-        "17 games and 4 collections read from website/data/games.js",
+        "1 game and 0 collections read from website/data/games.js",
       );
-      await expect(
-        editPage.locator('.folder-links > a[href*="folder.html?id=arcade"]'),
-      ).toContainText("7 games");
+      await expect(editPage.locator("#aboutFolders")).toContainText(
+        "No collections yet",
+      );
       await editPage.close();
       await editBrowser.close();
       console.log(
@@ -487,10 +586,11 @@ async function launch() {
     // "it doesn't save" is never left unexplained.
     const blockedBrowser = await launch();
     try {
-      const blockedPage = await blockedBrowser.newPage({
+      const blockedContext = await blockedBrowser.newContext({
         viewport: { width: 1440, height: 1000 },
       });
-      await blockedPage.addInitScript(() => {
+      await blockedContext.addInitScript(INJECT, [DEMO_CATALOG, DEMO_FOLDERS]);
+      await blockedContext.addInitScript(() => {
         Object.defineProperty(window, "localStorage", {
           configurable: true,
           get() {
@@ -498,12 +598,14 @@ async function launch() {
           },
         });
       });
+      const blockedPage = await blockedContext.newPage();
       const blockedErrors = [];
       blockedPage.on("pageerror", (e) => blockedErrors.push(e.message));
 
       // The library still loads and plays.
       await blockedPage.goto(base + "/");
-      await expect(blockedPage.locator("#row-originals .movie")).toHaveCount(6);
+      await expect(blockedPage.locator("#row-all .movie")).toHaveCount(4);
+      await expect(blockedPage.locator(".catalog-notice")).toHaveCount(0);
       // ...and About/passwords say plainly that nothing can be saved.
       await goTabOn(blockedPage, "about");
       await expect(blockedPage.locator("#catalogStatus")).toContainText(
@@ -515,7 +617,7 @@ async function launch() {
       // Favoriting still works for the session and reports the failure.
       await goTabOn(blockedPage, "home");
       await blockedPage
-        .locator('#row-originals [data-details="neon-snake"]')
+        .locator('#row-all [data-details="demo-one"]')
         .click();
       await blockedPage.locator("#detailsFooterFav").click();
       await expect(blockedPage.locator("#toast")).toContainText(
@@ -524,16 +626,20 @@ async function launch() {
       await blockedPage.locator("#detailsClose").click();
 
       // Collection pages say it too.
-      await blockedPage.goto(base + "/website/folder.html?id=arcade");
+      await blockedPage.goto(base + "/website/folder.html?id=demo-shelf");
       await expect(blockedPage.locator("#storageNote")).toContainText(
         "not letting the page save data",
       );
 
-      // And the game itself stops promising a saved best score.
-      await blockedPage.goto(base + "/website/game.html?id=neon-snake");
-      const blockedFrame = blockedPage.frameLocator("#gameFrame");
-      await expect(blockedFrame.locator("#gameNote")).toContainText(
-        "not letting the page save data",
+      // Playing still works, and the About page still counts what it read.
+      await blockedPage.goto(base + "/website/game.html?id=demo-one");
+      await expect(
+        blockedPage.frameLocator("#gameFrame").locator("#demo"),
+      ).toHaveText("Demo game running");
+      await blockedPage.locator("#backLink").click();
+      await blockedPage.locator('#footerBar [ref="about"]').click();
+      await expect(blockedPage.locator("#catalogStatus")).toContainText(
+        "4 games and 1 collection",
       );
 
       assert.deepEqual(blockedErrors, [], "blocked-storage JavaScript errors");
@@ -552,6 +658,7 @@ async function launch() {
     );
     console.log("All browser tests passed.");
   } finally {
+    fs.rmSync(demoFile, { force: true });
     await browser.close();
   }
 })().catch((error) => {

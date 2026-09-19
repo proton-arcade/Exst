@@ -18,7 +18,7 @@
     tags: () => $("fieldTags").value.trim(),
     badge: () => $("fieldBadge").value.trim(),
     featured: () => $("fieldFeatured").checked,
-    available: () => !$("fieldNotReady").checked,
+    hero: () => $("fieldHero").checked,
   };
 
   let data = null;
@@ -37,7 +37,6 @@
     Object.keys(FIELDS).forEach((key) => {
       const value = FIELDS[key]();
       if (value === "" || value === false) return;
-      if (key === "available" && value === true) return; // omitted = ready
       fields[key] = value;
     });
     return fields;
@@ -167,7 +166,7 @@
     $("fieldDescription").value = game.description || "";
     $("fieldTags").value = (game.tags || []).join(", ");
     $("fieldBadge").value = game.badge || "";
-    $("fieldNotReady").checked = game.available === false;
+    $("fieldHero").checked = game.hero === true;
     $("fieldFeatured").checked = game.featured === true;
     editingId = String(game.id || "");
     refresh();

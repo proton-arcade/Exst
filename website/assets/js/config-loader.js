@@ -33,6 +33,17 @@
 
   const LIST_KEYS = ["tags", "games", "aliases"];
 
+  /**
+   * Fields that used to exist. They are ignored, and the reason is reported as
+   * a catalog problem, so an old block never fails silently.
+   */
+  const RETIRED_GAME_FIELDS = {
+    original: "Exst no longer ships built-in games",
+    available: "every listed game is expected to work; there is no setup state",
+    bundled: "the bundled client slots were removed",
+    wasm: "the WASM client slots were removed",
+  };
+
   /** Problems listed in the on-page notice before it links to the console. */
   const NOTICE_LIMIT = 6;
 
@@ -227,6 +238,34 @@
     return items;
   }
 
+  /**
+   * The games that cycle in the spotlight carousel at the top of the home
+   * page, in the order they should appear.
+   *
+   *   1. the ids saved by the home page's "Edit spotlight" dialog, if any
+   *   2. every game with hero=true, in catalog order
+   *   3. every game with featured=true, in catalog order
+   *   4. the first six games in the catalog
+   */
+  function spotlightGames(games, savedIds = []) {
+    const byId = new Map(games.map((game) => [game.id, game]));
+    const saved = (Array.isArray(savedIds) ? savedIds : [])
+      .map((id) => byId.get(String(id).trim()))
+      .filter(Boolean);
+    if (saved.length) return saved;
+    const heroes = games.filter((game) => game.hero);
+    if (heroes.length) return heroes;
+    const featured = games.filter((game) => game.featured);
+    if (featured.length) return featured;
+    return games.slice(0, 6);
+  }
+
+  /** Wide artwork for the spotlight carousel and details cover. */
+  function spotlightArt(game) {
+    if (!game) return "";
+    return assetUrl(game.heroart || game.icon);
+  }
+
   /** Public single-file helper (no diagnostics): parse block text. */
   function parseBlockText(text, defaultType = "game") {
     return parseText(text, defaultType, "", null);
@@ -371,8 +410,9 @@
     "description",
     "tags",
     "featured",
+    "hero",
+    "heroart",
     "badge",
-    "available",
     "source",
   ];
 
@@ -383,7 +423,7 @@
     BLOCK_FIELDS.forEach((key) => {
       let value = fields[key];
       if (value === undefined || value === null || value === "") return;
-      if (value === false && key !== "available") return;
+      if (value === false) return;
       if (Array.isArray(value)) {
         const list = value.map((item) => String(item).trim()).filter(Boolean);
         if (!list.length) return;
@@ -450,6 +490,16 @@
       add(
         "icon",
         "The artwork should be an image file (png, webp, jpg, svg) — leave it blank for the default icon.",
+      );
+
+    const heroart = String(fields.heroart || "").trim();
+    if (
+      heroart &&
+      !/\.(png|jpe?g|webp|svg|gif|avif)([?#].*)?$/i.test(heroart)
+    )
+      add(
+        "heroart",
+        "The spotlight artwork should be an image file (png, webp, jpg, svg) — leave it blank to use the card artwork.",
       );
 
     return found;
@@ -544,11 +594,10 @@
       description: fields.description || "",
       tags: Array.isArray(fields.tags) ? fields.tags : [],
       featured: fields.featured === true || fields.featured === "true",
-      bundled: fields.bundled === true || fields.bundled === "true",
-      wasm: fields.wasm === true || fields.wasm === "true",
-      // Omitting the field means "ready to play".
-      available:
-        fields.available !== false && fields.available !== "false",
+      // hero=true puts the game in the spotlight carousel on the home page,
+      // in catalog order. heroart is optional wide artwork for it.
+      hero: fields.hero === true || fields.hero === "true",
+      heroart: fields.heroart || "",
       line: Number(line) || 0,
       idLine: Number(idLine) || Number(line) || 0,
     };
@@ -608,6 +657,17 @@
           return;
         }
         firstSeen.set(game.id, game.idLine);
+        Object.keys(RETIRED_GAME_FIELDS).forEach((field) => {
+          if (game[field] === undefined) return;
+          problems.push(
+            problem(
+              file,
+              game.idLine,
+              `“${game.title}”: ${field}= is ignored — ${RETIRED_GAME_FIELDS[field]}.`,
+              `Delete the ${field}= line.`,
+            ),
+          );
+        });
         if (!game.path || game.path === "#") {
           problems.push(
             problem(
@@ -632,13 +692,8 @@
         }
         games.push(game);
       });
-    if (!games.length) {
-      throw catalogError(
-        file,
-        "no [game] entries were found",
-        "Each entry needs a [game] line followed by id=, title= and path= lines. See README → “Add a game”.",
-      );
-    }
+    // An empty catalog is a perfectly good state: the site shows the "add your
+    // first game" hero and the two-step instructions instead of an error.
     return games;
   }
 
@@ -767,18 +822,14 @@
   }
 
   function tagList(game) {
-    const tags = [...(game.tags || [])];
-    if (game.wasm) tags.push("WASM");
-    if (game.bundled) tags.push("bundled");
-    return tags.slice(0, 4);
+    return [...(game.tags || [])].slice(0, 4);
   }
 
   function createGameCard(game, options = {}) {
     const article = document.createElement("article");
     article.className = `game-card ${game.featured ? "is-featured" : ""}`;
     const mode = getOpenMode();
-    const available = game.available !== false;
-    const href = gameUrl(game, available ? mode : "page", options.from || "");
+    const href = gameUrl(game, mode, options.from || "");
     const target = mode === "new" ? ' target="_blank" rel="noopener"' : "";
     const tags = tagList(game)
       .map((tag) => `<span>${escapeHtml(tag)}</span>`)
@@ -793,8 +844,8 @@
         <p>${escapeHtml(game.description || "Ready to launch from your editable arcade list.")}</p>
         <div class="tag-row">${tags}</div>
         <div class="card-actions">
-          <a class="play-link" href="${escapeHtml(href)}"${target}>${available ? "Play" : "Setup needed"}</a>
-          ${available ? `<a class="small-link" href="${escapeHtml(assetUrl(game.path))}" target="_blank" rel="noopener">direct</a>` : ""}
+          <a class="play-link" href="${escapeHtml(href)}"${target}>Play</a>
+          <a class="small-link" href="${escapeHtml(assetUrl(game.path))}" target="_blank" rel="noopener">direct</a>
         </div>
       </div>`;
     // Swap in the default icon if the thumbnail is missing (no inline handlers).
@@ -839,6 +890,8 @@
     parseBlockText,
     bindOpenModeSelect,
     createGameCard,
+    spotlightGames,
+    spotlightArt,
     catalogNoticeHtml,
     storageAvailable,
     storageGet,

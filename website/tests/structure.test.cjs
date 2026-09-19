@@ -53,10 +53,6 @@ const PAGES = [
       "assets/js/game.js",
     ],
   },
-  {
-    file: "website/games/arcade.html",
-    scripts: ["../assets/js/minigames.js"],
-  },
 ];
 
 /**
@@ -65,12 +61,22 @@ const PAGES = [
  * and specific — it is an exception list, not a dumping ground.
  */
 const RUNTIME_IDS = new Map([
-  ["website/assets/js/flix.js", new Set(["tryOriginal", "retryLoad"])],
+  [
+    "website/assets/js/flix.js",
+    new Set([
+      "retryLoad", // built by showCatalogFailure
+      // built by the spotlight editor when the dialog opens
+      "spotlightList",
+      "spotCount",
+      "spotCopyBox",
+      "spotCopyText",
+      "copyStarter", // built by the "Add a game" help dialog
+    ]),
+  ],
   [
     "website/assets/js/config-loader.js",
     new Set(["openMode"]), // optional control: `if (!select) return`
   ],
-  ["website/assets/js/game.js", new Set(["tryOriginal"])],
 ]);
 
 function read(file) {
@@ -280,16 +286,12 @@ test("every page that shows the arcade has the shared UI hooks", () => {
 test("the site's own pages never promise what they cannot keep", () => {
   // Copy that the blocked-storage work made conditional must not come back
   // as an unconditional claim in the markup.
-  const arcade = read("website/games/arcade.html");
-  assert.match(
-    arcade,
-    /id="gameNote"/,
-    "the best-score note needs an id so it can be corrected",
-  );
   const index = read("index.html");
   assert.match(index, /id="catalogStatus"/);
   assert.match(index, /id="openMode"/);
 });
+
+
 
 test("artwork always has a default-art layer behind it", () => {
   const source = read("website/assets/js/flix.js");
