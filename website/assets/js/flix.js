@@ -12,20 +12,12 @@
   // Where the "Edit spotlight" dialog remembers this device's carousel order.
   const SPOTLIGHT_KEY = "exst-hero-ids";
 
-  function read(key, fallback) {
-    try {
-      return JSON.parse(localStorage.getItem(key)) ?? fallback;
-    } catch {
-      return fallback;
-    }
-  }
-  function save(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      toast("Your browser could not save this preference.");
-    }
-  }
+  // Saving goes through the shared helpers, which report when the browser
+  // blocks storage instead of dropping the write without a word. The single
+  // message the user sees is written where the action happens, so a failure
+  // is never overwritten by a success message.
+  const read = ExstArcade.storageGet;
+  const save = ExstArcade.storageSet;
 
   let favorites = read("exst-favorites", []);
   let recent = read("exst-recent", []);
@@ -56,6 +48,20 @@
 
   function heroArt(game) {
     return ExstArcade.spotlightArt(game);
+  }
+
+  /** Artwork that is used when a game's own image cannot be loaded. */
+  const DEFAULT_ART = asset("assets/images/default-game.svg");
+
+  /**
+   * Two stacked background layers: the game's artwork, then the default
+   * artwork underneath. A typo in an icon path shows the default art instead
+   * of an empty poster, so it never just silently disappears.
+   */
+  function artLayers(...paths) {
+    return [...paths, DEFAULT_ART]
+      .map((item) => `url('${escape(String(item))}')`)
+      .join(",");
   }
 
   /** Deterministic 7.5–9.8 rating so the details page has a "Vote" line. */
@@ -91,11 +97,13 @@
     if (!game) return;
     const exists = favorites.includes(id);
     favorites = exists ? favorites.filter((x) => x !== id) : [...favorites, id];
-    save("exst-favorites", favorites);
+    const stored = save("exst-favorites", favorites);
     toast(
-      exists
-        ? `${game.title} removed from My List`
-        : `${game.title} added to My List`,
+      !stored
+        ? `${game.title} is on My List for this visit only — this browser is not saving changes.`
+        : exists
+          ? `${game.title} removed from My List`
+          : `${game.title} added to My List`,
     );
     renderAll();
     if (detailsId) syncDetailsFavorite();
@@ -104,13 +112,16 @@
   /* ---------- Posters ---------- */
 
   function poster(game) {
+    // A game added from inside the site says so on its poster, so it is never
+    // mistaken for a catalog entry that would survive clearing browser data.
+    const badge = game.draft ? "DRAFT" : game.badge;
     return (
       `<div class="movie">` +
       `<button class="item" data-details="${escape(game.id)}" ` +
-      `style="background-image:url('${escape(asset(game.icon))}')" ` +
+      `style="background-image:${artLayers(asset(game.icon))}" ` +
       `aria-label="View ${escape(game.title)}" title="${escape(game.title)}">` +
-      (game.badge
-        ? `<span class="item-badge">${escape(game.badge)}</span>`
+      (badge
+        ? `<span class="item-badge${game.draft ? " draft" : ""}">${escape(badge)}</span>`
         : "") +
       `<span class="item-label">${escape(game.title)}</span>` +
       `</button></div>`
@@ -140,11 +151,14 @@
   }
 
   /**
-   * The library is empty: the hero explains how to add the first game
-   * instead of showing dead buttons.
+   * The carousel has nothing to show (no games yet, or nothing ticked in the
+   * spotlight editor): the hero explains how to add the first game instead of
+   * leaving dead buttons behind.
    */
   function syncEmptyHero() {
-    $("heroCover").style.backgroundImage = `url('${asset("assets/images/default-game.svg")}')`;
+    $("heroCover").style.backgroundImage = artLayers(
+      asset("assets/images/default-game.svg"),
+    );
     $("heroKicker").textContent = "READY WHEN YOU ARE";
     $("heroTitle").textContent = "Add your first game";
     $("heroMeta").innerHTML = "";
@@ -173,7 +187,7 @@
     $("heroEdit").hidden = false;
     for (const id of ["heroPlay", "heroDetails", "heroFavorite"])
       $(id).disabled = false;
-    $("heroCover").style.backgroundImage = `url('${heroArt(game)}')`;
+    $("heroCover").style.backgroundImage = artLayers(heroArt(game));
     $("heroKicker").textContent = game.version
       ? `${game.version.toUpperCase()} • IN THE SPOTLIGHT`
       : "IN THE SPOTLIGHT";
@@ -243,14 +257,14 @@ hero=true`;
   let spotlightDraft = []; // [{ id, on }] in the order shown in the dialog
 
   function applySpotlight() {
-    heroSlides = ExstArcade.spotlightGames(data.games, read(SPOTLIGHT_KEY, null));
+    heroSlides = ExstArcade.spotlightGames(data.games, read(SPOTLIGHT_KEY, []));
     heroIndex = 0;
   }
 
   function buildSpotlightDraft() {
     const onIds = ExstArcade.spotlightGames(
       data.games,
-      read(SPOTLIGHT_KEY, null),
+      read(SPOTLIGHT_KEY, []),
     ).map((game) => game.id);
     const order = [
       ...onIds,
@@ -348,7 +362,10 @@ hero=true`;
     const chosen = spotlightDraft.filter((row) => row.on).map((row) => row.id);
     const order = [
       ...chosen,
-      ...data.games.map((game) => game.id).filter((id) => !chosen.includes(id)),
+      ...data.games
+        .filter((game) => !game.draft)
+        .map((game) => game.id)
+        .filter((id) => !chosen.includes(id)),
     ];
     const lines = [
       "# Exst Arcade catalog — written by the home page spotlight editor.",
@@ -376,16 +393,14 @@ hero=true`;
 
   function saveSpotlight() {
     const ids = spotlightDraft.filter((row) => row.on).map((row) => row.id);
-    try {
-      if (ids.length) localStorage.setItem(SPOTLIGHT_KEY, JSON.stringify(ids));
-      else localStorage.removeItem(SPOTLIGHT_KEY);
-    } catch {
-      toast("Your browser could not save this choice.");
-      return;
-    }
+    const stored = save(SPOTLIGHT_KEY, ids);
     applySpotlight();
     renderHero();
     restartHeroTimer();
+    if (!stored) {
+      toast("This browser is not saving changes, so the spotlight lasts this visit only.");
+      return;
+    }
     toast(
       ids.length
         ? `Spotlight saved: ${ids.length} game${ids.length === 1 ? "" : "s"}.`
@@ -394,11 +409,7 @@ hero=true`;
   }
 
   function resetSpotlight() {
-    try {
-      localStorage.removeItem(SPOTLIGHT_KEY);
-    } catch {
-      /* Storage can be disabled by the browser. */
-    }
+    save(SPOTLIGHT_KEY, []);
     applySpotlight();
     spotlightDraft = buildSpotlightDraft();
     renderSpotlightDialog();
@@ -428,10 +439,11 @@ hero=true`;
       `<p>Two steps, about a minute:</p>` +
         `<p><strong>1.</strong> Put the game file in <code>website/games/</code> — a single file such as ` +
         `<code>games/retro-pong.html</code>, or a folder whose main file is <code>index.html</code>.</p>` +
-        `<p><strong>2.</strong> Paste this block into <code>website/data/games.js</code> (between the backticks) and change the values:</p>` +
+        `<p><strong>2.</strong> Paste this block into <code>website/data/games.js</code> (inside the backticked text) and change the values:</p>` +
         `<pre class="starter-block">${escape(STARTER_BLOCK)}</pre>` +
         `<p><code>hero=true</code> puts the game in the carousel at the top of this page. Save the file and refresh — ` +
-        `no build step, no restart. The same file also documents every other field.</p>` +
+        `no build step, no restart. The same file also documents every other field, and ` +
+        `<a href="${escape(asset("add.html"))}">Add a game</a> fills the block in for you.</p>` +
         `<button class="primary-button" id="copyStarter">Copy the block</button>`,
     );
     $("copyStarter").onclick = async () => {
@@ -464,7 +476,9 @@ hero=true`;
       return false;
     if (
       query &&
-      !`${game.title} ${game.description} ${game.tags.join(" ")}`
+      // The id is searchable too: it is what the catalog file and URLs use,
+      // so "neon-pong" should find "Neon Pong".
+      !`${game.title} ${game.id} ${game.description} ${(game.tags || []).join(" ")}`
         .toLowerCase()
         .includes(query.toLowerCase())
     )
@@ -472,7 +486,7 @@ hero=true`;
     return true;
   }
 
-  /** Shown instead of the poster rows while the catalog has no games. */
+  /** Shown instead of the poster rows while the library has no games. */
   function emptyLibraryCard() {
     return (
       `<section class="flix-row" id="row-empty">` +
@@ -549,6 +563,18 @@ hero=true`;
       Object.values(plays).reduce((a, b) => a + (Number(b) || 0), 0),
     );
     $("favoriteCount").textContent = String(favorites.length);
+    const drafts = data.games.filter((game) => game.draft).length;
+    const draftCount = $("draftCount");
+    if (draftCount)
+      draftCount.textContent = drafts
+        ? `${drafts} added on this device →`
+        : "0 added on this device →";
+    renderCatalogStatus();
+    const spotlightCount = $("aboutSpotlightCount");
+    if (spotlightCount)
+      spotlightCount.textContent = heroSlides.length
+        ? `${heroSlides.length} game${heroSlides.length === 1 ? "" : "s"} in the carousel →`
+        : "choose the top carousel →";
     $("aboutFolders").innerHTML = data.folders.length
       ? data.folders
           .map((folder) => {
@@ -559,17 +585,6 @@ hero=true`;
           })
           .join("")
       : `<p class="hint">No collections yet. Add one to <code>website/data/folders.js</code> to give your games their own shelf.</p>`;
-    $("aboutSpotlightCount").textContent = heroSlides.length
-      ? `${heroSlides.length} game${heroSlides.length === 1 ? "" : "s"} in the carousel →`
-      : "choose the top carousel →";
-    const notes = $("catalogNotes");
-    if (notes) {
-      notes.hidden = !data.notes.length;
-      notes.innerHTML = data.notes.length
-        ? `<strong>Catalog notes</strong><br>` +
-          data.notes.map((note) => escape(note)).join("<br>")
-        : "";
-    }
   }
 
   function renderAll() {
@@ -582,13 +597,92 @@ hero=true`;
     if (window.renderIcons) window.renderIcons(document);
   }
 
+  /* ---------- Catalog edit feedback ---------- */
+
+  /**
+   * Every edit to website/data/games.js or folders.js is either read
+   * correctly or reported here — a half-saved entry never disappears
+   * without a word.
+   */
+  function renderCatalogNotice(problems) {
+    const host = $("catalogNotice");
+    if (!host) return;
+    host.innerHTML = ExstArcade.catalogNoticeHtml(problems);
+  }
+
+  /**
+   * A catalog edit that stops the library from loading is reported in the
+   * hero, where the user is already looking — never as an empty arcade or a
+   * page stuck on "Loading…".
+   */
+  function showCatalogFailure(error) {
+    const hint =
+      error.hint ||
+      "Make sure website/data/games.js and website/data/folders.js are present, then try again.";
+    const catalogError = error.name === "CatalogError";
+    document.body.classList.add("catalog-broken");
+    $("heroKicker").textContent = "CATALOG ERROR";
+    $("heroTitle").textContent = catalogError
+      ? "The game library could not be read"
+      : "The arcade couldn’t load";
+    $("heroOverview").textContent =
+      "Fix the catalog file described below, save it, then reload this page.";
+    $("heroMeta").innerHTML = "";
+    $("heroCategories").textContent = "";
+    $("heroDots").innerHTML = "";
+    const options = document.querySelector(".hero-content .options");
+    if (options) options.hidden = true;
+    $("rows").innerHTML = "";
+    const notice = document.createElement("section");
+    notice.className = "catalog-notice hero-notice";
+    notice.setAttribute("role", "alert");
+    notice.innerHTML =
+      `<div class="notice-head"><span class="notice-chip">CATALOG ERROR</span></div>` +
+      `<p class="notice-lead">${escape(error.message)}</p>` +
+      `<p class="notice-hint">${escape(hint)}</p>` +
+      `<p class="notice-hint">Nothing is lost: fix the file and reload — every other page of the arcade is unaffected.</p>` +
+      `<button class="primary-button" id="retryLoad">Reload the page</button>`;
+    document.querySelector(".hero-content").appendChild(notice);
+    $("retryLoad").addEventListener("click", () => location.reload());
+  }
+
+  function renderStorageStatus() {
+    const notice = ExstArcade.storageNoticeText();
+    if (!notice) return;
+    const hint = document.querySelector(".pref-block .hint");
+    if (hint)
+      hint.innerHTML = `${escape(notice)} Keyboard tip: press <kbd>/</kbd> to find a game instantly.`;
+  }
+
+  function renderCatalogStatus() {
+    const host = $("catalogStatus");
+    if (!host) return;
+    const files = ExstArcade.catalogFiles;
+    const problems = (data && data.problems) || [];
+    const storage = ExstArcade.storageNoticeText();
+    host.innerHTML =
+      `<strong>Catalog:</strong> ${data.games.length} game${
+        data.games.length === 1 ? "" : "s"
+      } and ${data.folders.length} collection${
+        data.folders.length === 1 ? "" : "s"
+      } read from <code>${escape(files.games)}</code> and <code>${escape(
+        files.folders,
+      )}</code> when this page loaded.${
+        problems.length
+          ? ` <strong>${problems.length} problem${
+              problems.length === 1 ? "" : "s"
+            } found</strong> — open the Catalog check notice on Home.`
+          : " Your edits show up here as soon as the page is refreshed."
+      }${storage ? ` <strong>${escape(storage)}</strong>` : ""}`;
+  }
+
   /* ---------- Details slide-in ---------- */
 
   function openDetails(id) {
     const game = data.byId.get(id);
     if (!game) return;
     detailsId = id;
-    $("detailsCover").style.backgroundImage = `url('${heroArt(game)}')`;
+    $("detailsCover").style.backgroundImage = artLayers(heroArt(game));
     $("detailsTitle").textContent = game.title;
     $("detailsHeadTitle").textContent = game.title;
     $("detailsOverview").textContent =
@@ -603,6 +697,15 @@ hero=true`;
       .join("");
     $("detailsPlay").dataset.play = game.id;
     $("detailsDirect").href = asset(game.path);
+    const draftNote = $("detailsDraftNote");
+    if (draftNote) {
+      draftNote.hidden = !game.draft;
+      draftNote.innerHTML = game.draft
+        ? `<strong>Added on this device.</strong> Open <a href="${escape(
+            asset("add.html"),
+          )}">Add a game</a> to copy its catalog block into <code>website/data/games.js</code> — that is what makes it permanent and visible to everyone.`
+        : "";
+    }
     const panel = $("detailsPage");
     panel.hidden = false;
     requestAnimationFrame(() => panel.classList.add("open"));
@@ -852,18 +955,15 @@ hero=true`;
   ExstArcade.loadArcadeData()
     .then((result) => {
       data = result;
-      if (data.notes.length) console.warn("Exst Arcade catalog:", data.notes.join(" "));
       applySpotlight();
       renderHero();
       renderAll();
+      renderCatalogNotice(result.problems);
+      renderStorageStatus();
       ExstArcade.bindOpenModeSelect();
       routeFromHash();
       syncHeader();
       restartHeroTimer();
     })
-    .catch((error) => {
-      $("rows").innerHTML =
-        `<div class="empty-state"><h3>The arcade couldn’t load</h3><p>${escape(error.message)}. Make sure <code>website/data/games.js</code> and <code>website/data/folders.js</code> are present, then try again.</p><button class="primary-button" id="retryLoad">Try again</button></div>`;
-      $("retryLoad").addEventListener("click", () => location.reload());
-    });
+    .catch(showCatalogFailure);
 })();

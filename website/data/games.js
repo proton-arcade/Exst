@@ -8,8 +8,17 @@
  *        single file :  website/games/retro-pong.html
  *        whole folder:  website/games/retro-pong/index.html
  *                       (unzip the game straight into a new folder)
- *   2. Copy the example block below into this file, remove the leading
- *      "#", change the values, save, and refresh.
+ *   2. Paste a [game] block BELOW THIS COMMENT, INSIDE the backtick-quoted
+ *      text (remove the leading "#" from a copy of the example further
+ *      down), change the values, save, and refresh.
+ *
+ *      !! Every block must start with its own [game] line and sit before the
+ *      !! closing backtick at the end of this file. Text pasted after that
+ *      !! backtick, or a stray backtick inside a description, is a JavaScript
+ *      !! error: the whole library disappears from the site. Every page then
+ *      !! shows a "Catalog check" notice pointing back here, so nothing fails
+ *      !! silently. The Add a game page (website/add.html) builds the block
+ *      !! for you if you would rather not type it.
  *
  * ── THE SPOTLIGHT (the carousel at the top of the home page) ─────────────
  *   hero=true      put this game in the top carousel that cycles on the

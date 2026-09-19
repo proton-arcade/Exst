@@ -92,6 +92,9 @@
           </div>
         </div>
 
+        <!-- Populated when a catalog edit needs attention (see config-loader.js). -->
+        <div id="catalogNotice"></div>
+
         <div id="rows" aria-live="polite"></div>
 
         <div class="about-box">
@@ -202,14 +205,18 @@
           </div>
           <h2>Your games</h2>
           <div class="folder-links">
+            <a href="website/add.html"
+              ><span>Add a game</span
+              ><small id="draftCount">0 added on this device →</small></a
+            >
             <a href="#home" id="aboutSpotlight"
               ><span>Edit the spotlight</span
               ><small id="aboutSpotlightCount">choose the top carousel →</small></a
             >
           </div>
-          <p class="body catalog-status" id="catalogNotes" hidden></p>
           <h2>Collections</h2>
           <div class="folder-links" id="aboutFolders"></div>
+          <p class="body catalog-status" id="catalogStatus"></p>
           <h2>Made for a quick escape</h2>
           <p class="body">
             Exst Arcade is a free, lightweight home for browser games — no
@@ -267,6 +274,7 @@
           <p id="detailsMeta" class="sub"></p>
           <div class="tag-row" id="detailsTags"></div>
           <p id="detailsOverview"></p>
+          <p class="draft-note" id="detailsDraftNote" hidden></p>
           <h2>Vote <span id="detailsVote">7.5</span></h2>
           <div class="details-actions">
             <a class="ghost" id="detailsDirect" target="_blank" rel="noopener"

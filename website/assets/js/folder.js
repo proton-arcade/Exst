@@ -5,21 +5,10 @@ const $ = (id) => document.getElementById(id);
 const escape = ExstArcade.escapeHtml;
 const asset = ExstArcade.assetUrl;
 
-function read(key, fallback) {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function save(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    toast("Your browser could not save this preference.");
-  }
-}
+// Saving goes through the shared helpers, which report when the browser
+// blocks storage instead of dropping the write without a word.
+const read = ExstArcade.storageGet;
+const save = ExstArcade.storageSet;
 
 let favorites = read("exst-favorites", []);
 let recent = read("exst-recent", []);
@@ -68,11 +57,13 @@ function toggleFavorite(id) {
   if (!game) return;
   const exists = favorites.includes(id);
   favorites = exists ? favorites.filter((x) => x !== id) : [...favorites, id];
-  save("exst-favorites", favorites);
+  const stored = save("exst-favorites", favorites);
   toast(
-    exists
-      ? `${game.title} removed from My List`
-      : `${game.title} added to My List`,
+    !stored
+      ? `${game.title} is on My List for this visit only — this browser is not saving changes.`
+      : exists
+        ? `${game.title} removed from My List`
+        : `${game.title} added to My List`,
   );
   if (detailsId) syncDetailsFavorite();
 }
@@ -145,6 +136,11 @@ async function bootFolder() {
     folder.description || "A handpicked collection from your arcade.";
   const games = folder.games.map((id) => arcade.byId.get(id)).filter(Boolean);
   document.getElementById("folderCount").textContent = `${games.length} games`;
+  // Collections are built from the game catalog, so a catalog problem can
+  // explain why a game is missing from this page.
+  const notice = document.getElementById("folderNotice");
+  if (notice)
+    notice.innerHTML = ExstArcade.catalogNoticeHtml(arcade.problems);
   const grid = document.getElementById("folderGameGrid");
   function renderFolderGames() {
     grid.innerHTML = "";
@@ -171,6 +167,16 @@ async function bootFolder() {
     const card = link?.closest("[data-game-id]");
     if (!card) return;
     const gameId = card.dataset.gameId;
+    // Launching always works; the counts are best-effort and the page says
+    // so when the browser refuses to keep them.
+    const plays = ExstArcade.storageGet("exst-game-plays", {});
+    const recent = ExstArcade.storageGet("exst-recent", []);
+    plays[gameId] = (Number(plays[gameId]) || 0) + 1;
+    ExstArcade.storageSet("exst-game-plays", plays);
+    ExstArcade.storageSet(
+      "exst-recent",
+      [gameId, ...recent.filter((item) => item !== gameId)].slice(0, 30),
+    );
     if (link.classList.contains("game-thumb") || link.closest(".game-thumb")) {
       event.preventDefault();
       openDetails(gameId);
@@ -236,10 +242,15 @@ async function bootFolder() {
       top > 40 ? "rgba(16,16,16,1)" : "rgba(16,16,16,0)";
   });
 
+  const storageNote = document.getElementById("storageNote");
+  if (storageNote) storageNote.textContent = ExstArcade.storageNoticeText();
+
   if (window.renderIcons) window.renderIcons(document);
 }
 
 bootFolder().catch((error) => {
   document.getElementById("folderTitle").textContent = "Collection unavailable";
-  document.getElementById("folderDescription").textContent = error.message;
+  document.getElementById("folderDescription").textContent = error.hint
+    ? `${error.message} ${error.hint}`
+    : error.message;
 });

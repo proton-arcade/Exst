@@ -9,6 +9,11 @@
  *   Copy the block below, remove the leading "#", and change the values.
  *   games = comma-separated game IDs copied from the id= lines in games.js.
  *
+ *   Each block needs its own [folder] line and must sit before the closing
+ *   backtick at the end of this file (text after that backtick is a
+ *   JavaScript error). An ID that does not exist in games.js is left out and
+ *   listed in the Catalog check notice on the home page.
+ *
  * There are no collections yet: every folder needs games to hold, and the
  * library is still empty. Add a game first (see games.js), then paste a
  * folder block here.
