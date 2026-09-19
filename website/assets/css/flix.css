@@ -41,7 +41,8 @@ body.flix {
   min-height: 100vh;
 }
 
-body.flix.noscroll {
+body.flix.noscroll,
+body.folder-page.noscroll {
   overflow: hidden;
 }
 
@@ -418,7 +419,7 @@ body.flix .icon {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 18px 6px 6px;
+  padding: 18px 6px 3px;
   font-size: 72%;
   line-height: 1.25;
   text-align: left;
@@ -778,6 +779,7 @@ body.flix .icon {
 
 #footerBar button span {
   color: var(--flix-grey);
+  margin-top: 2px;
 }
 
 #footerBar button:hover .icon,
@@ -1077,7 +1079,8 @@ body.flix #dialogContent .primary-button {
   gap: 6px;
 }
 
-body.flix .toast {
+body.flix .toast,
+body.folder-page .toast {
   position: fixed;
   left: 50%;
   bottom: 72px;
@@ -1096,7 +1099,8 @@ body.flix .toast {
   text-align: center;
 }
 
-body.flix .toast.visible {
+body.flix .toast.visible,
+body.folder-page .toast.visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
