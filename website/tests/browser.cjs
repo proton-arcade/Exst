@@ -48,9 +48,10 @@ async function launch() {
     const goto = async (route) => {
       await page.goto(base + route);
     };
-    const goTab = async (ref) => {
-      await page.locator(`#footerBar [ref="${ref}"]`).click();
+    const goTabOn = async (target, ref) => {
+      await target.locator(`#footerBar [ref="${ref}"]`).click();
     };
+    const goTab = async (ref) => goTabOn(page, ref);
 
     // Netflix-style home: hero cover + originals row + red logo.
     await goto("/");
@@ -228,7 +229,9 @@ async function launch() {
       }
     }
     await goTab("about");
-    await expect(page.locator(".folder-links>a")).toHaveCount(4);
+    // #aboutFolders holds the collections; "Add a game" is a separate link
+    // that happens to share the same styling class.
+    await expect(page.locator("#aboutFolders>a")).toHaveCount(4);
     await page
       .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
       .click();
@@ -263,6 +266,138 @@ async function launch() {
       "✓ Configured collections, folder launch modes, missing-game fallbacks",
     );
 
+    // A catalog edit is never silent: a clean library shows no notice...
+    await goto("/");
+    await expect(page.locator(".catalog-notice")).toHaveCount(0);
+
+    // ...a recoverable mistake is listed with file + line and can be closed...
+    await page.route("**/website/data/games.js", (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body:
+          "window.EXST_GAMES_TEXT = `\n[game]\nid=alpha\ntitle=Alpha\npath=games/arcade.html?game=neon-snake\n\n[game]\nid=alpha\ntitle=Alpha copy\npath=games/arcade.html?game=2048\n`;",
+      }),
+    );
+    await page.route("**/website/data/folders.js", (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body:
+          "window.EXST_FOLDERS_TEXT = `\n[folder]\nid=one\ntitle=One\ngames=alpha\n`;",
+      }),
+    );
+    await goto("/");
+    await expect(page.locator(".catalog-notice")).toBeVisible();
+    await expect(page.locator(".catalog-notice")).toContainText("CATALOG CHECK");
+    await expect(page.locator(".catalog-notice")).toContainText(
+      "id=alpha is already used on line 3",
+    );
+    await expect(page.locator(".catalog-notice li").first()).toContainText(
+      "line 8",
+    );
+    await page.locator("[data-dismiss-notice]").click();
+    await expect(page.locator(".catalog-notice")).toHaveCount(0);
+    await page.unroute("**/website/data/games.js");
+    await page.unroute("**/website/data/folders.js");
+
+    // ...and an unreadable catalog file is explained instead of leaving the
+    // page stuck on "Loading…" with an empty arcade.
+    const errorsBeforeBrokenCatalog = errors.length;
+    await page.route("**/website/data/games.js", (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body:
+          // The classic mis-paste: a block after the closing backtick, which
+          // makes the whole catalog file a syntax error.
+          "window.EXST_GAMES_TEXT = `\n[game]\nid=only-game\n`;\n\n[game]\nid=oops\ntitle=My Game\n",
+      }),
+    );
+    await goto("/");
+    await expect(page.locator("#heroTitle")).toHaveText(
+      "The game library could not be read",
+    );
+    await expect(page.locator(".hero-notice")).toContainText("closing backtick");
+    await expect(page.locator(".hero-notice")).toContainText(
+      "website/data/games.js could not be read",
+    );
+    // The Play button cannot launch anything, so it is not offered.
+    await expect(page.locator(".hero-content .options")).toBeHidden();
+    await page.unroute("**/website/data/games.js");
+    await goto("/");
+    await expect(page.locator("#row-originals .movie")).toHaveCount(6);
+    errors.length = errorsBeforeBrokenCatalog; // the broken file is the point of the test
+    console.log(
+      "\u2713 Catalog edits: broken files and duplicate ids are explained on screen",
+    );
+
+    // Add a game from inside the site: it must be validated, saved, playable
+    // immediately, clearly marked as device-local, and removable.
+    await goto("/website/add.html");
+    await expect(page.locator("#blockPreview")).toContainText("[game]");
+    // The form refuses an id with a space, and says why.
+    await page.locator("#fieldId").fill("neon pong");
+    await page.locator("#fieldTitle").fill("Neon Pong");
+    await page.locator("#fieldPath").fill("games/neon-pong.html");
+    await expect(page.locator("#saveDraft")).toBeDisabled();
+    await expect(page.locator("#addNotice")).toContainText(
+      "cannot contain spaces",
+    );
+    // A usable id saves, and the page says exactly what happened.
+    await page.locator("#fieldId").fill("neon-pong");
+    await expect(page.locator("#fieldId")).not.toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await expect(page.locator("#addNotice")).not.toContainText("cannot contain");
+    await page.locator("#fieldIcon").fill("assets/images/default-game.svg");
+    await page.locator("#fieldTags").fill("Arcade, Action");
+    await page.locator("#fieldDescription").fill("Added from inside the site.");
+    await expect(page.locator("#saveDraft")).toBeEnabled();
+    await page.locator("#saveDraft").click();
+    await expect(page.locator("#saveStatus")).toContainText(
+      "Saved Neon Pong on this device",
+    );
+    await expect(page.locator("#draftList")).toContainText("Neon Pong");
+    await expect(page.locator("#draftCount")).toHaveText("1");
+    // The block it offers is the exact catalog text.
+    await expect(page.locator("#blockPreview")).toContainText("id=neon-pong");
+    await expect(page.locator("#blockPreview")).toContainText("tags=Arcade, Action");
+
+    // Home: the new game is in the library, badged as added on this device.
+    await goto("/");
+    await expect(page.locator("#row-all .movie")).toHaveCount(17);
+    await expect(
+      page.locator('#row-all [data-details="neon-pong"] .item-badge'),
+    ).toHaveText("DRAFT");
+    await expect(page.locator("#row-all")).toContainText("Neon Pong");
+    await page.locator('#row-all [data-details="neon-pong"]').click();
+    await expect(page.locator("#detailsDraftNote")).toBeVisible();
+    await expect(page.locator("#detailsDraftNote")).toContainText(
+      "Added on this device",
+    );
+    await page.locator("#detailsClose").click();
+    await goTab("search");
+    await page.locator("#searchInput").fill("neon-pong");
+    await expect(page.locator("#searchGrid .movie")).toHaveCount(1);
+    await page.locator("#searchInput").fill("");
+    await goTab("about");
+    await expect(page.locator("#draftCount")).toContainText(
+      "1 added on this device",
+    );
+    await expect(
+      page.locator('.folder-links a[href="website/add.html"]'),
+    ).toBeVisible();
+
+    // Removing it takes it back out of the library.
+    await goto("/website/add.html");
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.locator("[data-remove]").click();
+    await expect(page.locator("#draftCount")).toHaveText("0");
+    await expect(page.locator("#draftList")).toContainText("Nothing added here yet");
+    await goto("/");
+    await expect(page.locator("#row-all .movie")).toHaveCount(16);
+    console.log(
+      "\u2713 Adding a game inside the site: validated, saved, playable, badged and removable",
+    );
     // No-server proof: open the site straight from the filesystem.
     const filePage = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
@@ -285,6 +420,9 @@ async function launch() {
     await filePage.waitForURL(/index\.html/);
     await expect(filePage.locator("#row-originals .movie")).toHaveCount(6);
     await filePage.locator('#footerBar [ref="about"]').click();
+    await expect(filePage.locator("#catalogStatus")).toContainText(
+      "16 games and 4 collections read from website/data/games.js",
+    );
     await filePage
       .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
       .click();
@@ -296,6 +434,116 @@ async function launch() {
     console.log(
       "✓ No-server file:// run: dashboard, player and folder all work",
     );
+
+    // The claim this whole suite exists to protect: edit the catalog on disk,
+    // reload, and the new game is there — even over file:// with no server.
+    const editDir = fs.mkdtempSync(path.join(os.tmpdir(), "exst-catalg-edit-"));
+    try {
+      const skipDirs = new Set(["node_modules", ".git", ".test-artifacts"]);
+      fs.cpSync(root, editDir, {
+        recursive: true,
+        filter: (src) =>
+          !path.relative(root, src).split(path.sep).some((p) => skipDirs.has(p)),
+      });
+      const gamesFile = path.join(editDir, "website/data/games.js");
+      fs.writeFileSync(
+        gamesFile,
+        fs
+          .readFileSync(gamesFile, "utf8")
+          .replace(
+            /(\n`;)\s*$/,
+            "\n[game]\nid=my-test-game\ntitle=My Test Game\nversion=Just added\nicon=assets/images/default-game.svg\npath=games/my-test-game.html\ndescription=Added during the catalog-edit test.\ntags=Arcade\n$1",
+          ),
+      );
+      // Its own browser: this check opens and closes a page after the main
+      // page has been through the whole suite.
+      const editBrowser = await launch();
+      const editPage = await editBrowser.newPage({
+        viewport: { width: 1440, height: 1000 },
+      });
+      await editPage.goto("file://" + path.join(editDir, "index.html"));
+      await expect(editPage.locator("#row-all .movie")).toHaveCount(17);
+      await expect(
+        editPage.locator("#row-all .item-label", { hasText: "My Test Game" }),
+      ).toHaveCount(1);
+      await expect(editPage.locator(".catalog-notice")).toHaveCount(0);
+      await editPage.locator('#footerBar [ref="about"]').click();
+      await expect(editPage.locator("#catalogStatus")).toContainText(
+        "17 games and 4 collections read from website/data/games.js",
+      );
+      await expect(
+        editPage.locator('.folder-links > a[href*="folder.html?id=arcade"]'),
+      ).toContainText("7 games");
+      await editPage.close();
+      await editBrowser.close();
+      console.log(
+        "\u2713 Catalog edits: a new [game] block appears after a reload, over file://",
+      );
+    } finally {
+      fs.rmSync(editDir, { recursive: true, force: true });
+    }
+
+    // A browser that blocks storage must be told, not silently ignored —
+    // "it doesn't save" is never left unexplained.
+    const blockedBrowser = await launch();
+    try {
+      const blockedPage = await blockedBrowser.newPage({
+        viewport: { width: 1440, height: 1000 },
+      });
+      await blockedPage.addInitScript(() => {
+        Object.defineProperty(window, "localStorage", {
+          configurable: true,
+          get() {
+            throw new DOMException("The operation is insecure.", "SecurityError");
+          },
+        });
+      });
+      const blockedErrors = [];
+      blockedPage.on("pageerror", (e) => blockedErrors.push(e.message));
+
+      // The library still loads and plays.
+      await blockedPage.goto(base + "/");
+      await expect(blockedPage.locator("#row-originals .movie")).toHaveCount(6);
+      // ...and About/passwords say plainly that nothing can be saved.
+      await goTabOn(blockedPage, "about");
+      await expect(blockedPage.locator("#catalogStatus")).toContainText(
+        "not letting the page save data",
+      );
+      await expect(blockedPage.locator(".pref-block .hint")).toContainText(
+        "not letting the page save data",
+      );
+      // Favoriting still works for the session and reports the failure.
+      await goTabOn(blockedPage, "home");
+      await blockedPage
+        .locator('#row-originals [data-details="neon-snake"]')
+        .click();
+      await blockedPage.locator("#detailsFooterFav").click();
+      await expect(blockedPage.locator("#toast")).toContainText(
+        "this browser is not saving changes",
+      );
+      await blockedPage.locator("#detailsClose").click();
+
+      // Collection pages say it too.
+      await blockedPage.goto(base + "/website/folder.html?id=arcade");
+      await expect(blockedPage.locator("#storageNote")).toContainText(
+        "not letting the page save data",
+      );
+
+      // And the game itself stops promising a saved best score.
+      await blockedPage.goto(base + "/website/game.html?id=neon-snake");
+      const blockedFrame = blockedPage.frameLocator("#gameFrame");
+      await expect(blockedFrame.locator("#gameNote")).toContainText(
+        "not letting the page save data",
+      );
+
+      assert.deepEqual(blockedErrors, [], "blocked-storage JavaScript errors");
+      console.log(
+        "\u2713 Blocked storage: library still plays, and saving is explained instead of silently dropped",
+      );
+      await blockedPage.close();
+    } finally {
+      await blockedBrowser.close();
+    }
 
     assert.deepEqual(errors, [], "Browser JavaScript errors");
     assert.deepEqual(broken, [], "Broken local resources");

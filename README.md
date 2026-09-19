@@ -37,6 +37,7 @@ website/
   mc/               (your unzipped Minecraft client folders — git-ignored)
   game.html         the game player (game.html?id=<game-id>)
   folder.html       collection pages (folder.html?id=<folder-id>)
+  add.html          add a game without a text editor (saves to this device)
   package.json      optional test/dev scripts
   tests/            catalog + Playwright browser suites
 ```
@@ -72,6 +73,36 @@ That's all. Refresh `index.html` and the game is in the grid, in the player
 (`website/game.html?id=retro-pong`), in search, and in any collection that
 lists it. No restart, no build.
 
+### If your edit doesn't show up
+
+The catalog is read fresh every time the page loads, and **every edit is
+checked** — a half-saved entry never disappears silently:
+
+- **Nothing moved at all?** Refresh the page (the browser may still be
+  showing the old copy), then check **About → Catalog** on the home page. It
+  states exactly how many games and collections the page just read, so you
+  can tell your edit was picked up.
+- **"Catalog check" notice on Home** — the library loaded, but something in
+  it needs attention. The notice names the file, the line, and what to do;
+  the browser console lists the same problems. Usual causes: an entry pasted
+  without its own `[game]` line, a reused `id`, or a collection that lists an
+  id which isn't in `games.js`.
+- **"The game library could not be read"** — `games.js` didn't load at all.
+  Almost always a JavaScript error, and the message says which: an entry
+  pasted **after** the closing backtick at the end of the file, a stray
+  backtick inside a description, or the file being renamed/moved. Every entry
+  must sit **inside** the backtick-quoted text and begin with its own
+  `[game]` line.
+- **A game shows "Setup needed"** — its entry still has `available=false`.
+  Put the game file at the entry's `path` (or point `path` at the file you
+  already have) and delete the `available=false` line.
+
+Editing the catalog only ever changes what the site *shows*. Nothing you type
+into the page is written back to disk: favorites, recents, play counts, and
+high scores live in the browser's local storage, so they are per-browser (see
+**Local data and privacy** below). To keep a game for good, put its block in
+`website/data/games.js`.
+
 To try a game without listing it, open
 `website/game.html?path=games/your-game.html` — any game file can be played
 directly.
@@ -87,6 +118,29 @@ builds **you have the rights to run** at the configured paths:
 - Minecraft slots expect unzipped clients under `website/mc/`
   (e.g. `website/mc/1.12.2/index.html`). Those folders are git-ignored;
   drop them in locally or on your host.
+
+## Add a game without a text editor
+
+Open **`website/add.html`** (linked from **About → Your games**). Fill in the
+form and the game is added to the arcade immediately — no text editor, no
+restart. The page checks the same rules the catalog loader does, so an id that
+is taken, a path that is not a game file, or a missing title is explained
+before anything is stored.
+
+Games added this way are saved **on this device only** (browser local storage)
+and are badged **DRAFT** so they are never mistaken for catalog entries. They
+appear in the grid, search, the player, and collections that list their id.
+The page also prints the exact `[game]` block to paste into
+`website/data/games.js` — pasting it there is what makes a game permanent and
+visible to everyone who opens the site.
+
+```
+Add a game (website/add.html)
+  ↓ save
+this device's browser storage   →  playable right away, DRAFT badge
+  ↓ copy the block, paste it into website/data/games.js
+the catalog                     →  part of the site itself
+```
 
 ## Add a collection (folder)
 
@@ -120,6 +174,10 @@ own poster row on the home page, under **About → Collections**, and at
 - Accessible labels, keyboard focus styles, skip navigation, reduced-motion
   support, and native dialogs.
 - Clear "setup needed" states for placeholder game entries.
+- Self-checking catalog: every load reports what it read (About → Catalog),
+  and a bad edit — an entry pasted outside the backticks, a block missing its
+  `[game]` line, a duplicate id, a collection pointing at an unknown id — is
+  described on screen with file and line instead of silently vanishing.
 
 ## Six playable originals
 
@@ -146,25 +204,53 @@ resets them. All content is local to the repository — no third-party scripts
 are loaded at runtime. Because the player embeds game files in an iframe,
 only add games you trust.
 
+**When saving is switched off:** some browsers block local storage, especially
+for pages opened straight from the filesystem (`file://`) and in private
+windows. The site detects it and says so — About and collection pages carry a
+plain line explaining that nothing is being kept, favoriting reports
+"on My List for this visit only", the game itself stops promising a saved best
+score, and the launch preference stops claiming to be remembered. The library
+still loads and every game still plays; a regular window, or serving the site
+over http(s), makes saving work again.
+
 ## Tests
 
 ```sh
 cd website
 npm install
-npm test                        # catalog parsing, IDs, files, references, URL rules
+npm test                        # catalog + structure: parsing, IDs, files,
+                                # references, URL rules, script order, orphans
 npm start                       # in a second terminal, for the browser suite
 npm run test:browser            # Playwright: dashboard, player, all six games,
                                 # collections, mobile widths, plus a no-server
                                 # file:// smoke test
 ```
 
-The Node tests validate catalog parsing, unique IDs, file existence, folder
-references, URL building, and escaping. The browser suite covers search,
-categories, sorting, persistent favorites, launch preferences, setup dialogs,
-2048 scoring, every original game's start/pause/restart, a complete Memory
-Match win, mobile navigation, horizontal overflow at four widths, and opening
-the whole site over `file://` with no server. Screenshots are written to the
-ignored `.test-artifacts/` directory.
+The Node tests are split in two. **`catalog.test.cjs`** validates catalog
+parsing, unique IDs, file existence, folder references, URL building,
+escaping, and the catalog safety net: a block
+pasted without its `[game]` header becomes its own entry, duplicate ids and
+unknown folder references are reported with file and line, and an unreadable
+`games.js` throws an explained error instead of rendering an empty arcade.
+The browser suite covers search, categories, sorting, persistent favorites,
+launch preferences, setup dialogs, 2048 scoring, every original game's
+start/pause/restart, a complete Memory Match win, the on-screen Catalog check
+notice (and its dismiss button), the "game library could not be read" panel,
+an end-to-end catalog edit, adding a game from inside the site (validated,
+saved, playable, badged, removable), a browser that blocks local storage
+(everything still loads, plays, and says plainly that nothing is being
+kept), mobile
+navigation, horizontal overflow at four widths, and opening the whole site
+over `file://` with no server. Screenshots are written to the ignored
+`.test-artifacts/` directory.
+
+**`structure.test.cjs`** guards the things a build step would normally catch:
+every local file a page references exists, each page loads its scripts in a
+working order (catalog, then loader, then page code), page scripts only look
+for elements that are really on that page, no script or stylesheet is left
+unreferenced, the loader still exports the API the pages use, and the game
+artwork always has a default layer behind it so a wrong icon path shows the
+default art instead of an empty tile.
 
 ## Attribution
 

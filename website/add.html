@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#121212" />
+    <title>Add a game — Exst Arcade</title>
+    <meta
+      name="description"
+      content="Add a game to Exst Arcade: fill in the details, play it right away, and copy the catalog block when you want to keep it."
+    />
+    <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png" />
+    <link rel="stylesheet" href="assets/css/flix.css" />
+  </head>
+  <body class="flix add-page">
+    <noscript>
+      <p style="padding: 1rem; text-align: center">
+        Adding a game needs JavaScript. Please enable JavaScript and reload
+        this page.
+      </p>
+    </noscript>
+    <a class="skip-link" href="#addForm">Skip to the form</a>
+
+    <header id="headerBar">
+      <div class="header">
+        <a class="logo" href="../index.html" aria-label="Exst Arcade home"
+          >ExstArcade<small>ARCADE</small></a
+        >
+      </div>
+      <nav class="top-nav" aria-label="Primary navigation">
+        <a href="../index.html#search">All games</a>
+        <a href="../index.html#about">About</a>
+      </nav>
+    </header>
+
+    <main class="add-main">
+      <h1>Add a game</h1>
+      <p class="sub">
+        Fill this in and the game works straight away on this device — no
+        restart, no build step. When you want it to stay for good, copy the
+        catalog block at the bottom into
+        <code>website/data/games.js</code>.
+      </p>
+
+      <div id="addNotice"></div>
+
+      <p class="storage-note" id="addStorageNote"></p>
+
+      <form id="addForm" class="add-form" novalidate>
+        <div class="field-row">
+          <label for="fieldId"
+            >Id <span class="req">required</span>
+            <input
+              id="fieldId"
+              name="id"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="neon-pong"
+              aria-describedby="fieldIdHint"
+            />
+            <small id="fieldIdHint" class="field-hint"
+              >Short, unique, used in links and favorites. Letters, numbers
+              and dashes — no spaces.</small
+            >
+          </label>
+          <label for="fieldTitle"
+            >Title <span class="req">required</span>
+            <input
+              id="fieldTitle"
+              name="title"
+              type="text"
+              autocomplete="off"
+              placeholder="Neon Pong"
+            />
+          </label>
+        </div>
+
+        <label for="fieldPath"
+          >Game file <span class="req">required</span>
+          <input
+            id="fieldPath"
+            name="path"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="games/neon-pong.html"
+            aria-describedby="fieldPathHint"
+          />
+          <small id="fieldPathHint" class="field-hint"
+            >Relative to the website/ folder. Put your file at
+            website/games/neon-pong.html and use games/neon-pong.html — a
+            single .html file, or a folder whose main file is index.html.</small
+          >
+        </label>
+
+        <div class="field-row">
+          <label for="fieldIcon"
+            >Artwork
+            <input
+              id="fieldIcon"
+              name="icon"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="assets/images/neon-pong.webp"
+            />
+            <small class="field-hint"
+              >Optional image, relative to website/. Blank uses the default
+              card artwork.</small
+            >
+          </label>
+          <label for="fieldVersion"
+            >Version
+            <input
+              id="fieldVersion"
+              name="version"
+              type="text"
+              autocomplete="off"
+              placeholder="My first upload"
+            />
+          </label>
+        </div>
+
+        <label for="fieldDescription"
+          >Description
+          <textarea
+            id="fieldDescription"
+            name="description"
+            rows="2"
+            placeholder="One honest line about the game."
+          ></textarea>
+        </label>
+
+        <div class="field-row">
+          <label for="fieldTags"
+            >Tags
+            <input
+              id="fieldTags"
+              name="tags"
+              type="text"
+              autocomplete="off"
+              placeholder="Arcade, Action"
+            />
+            <small class="field-hint"
+              >Comma separated. Action, Adventure, Racing, Puzzle and Arcade
+              plug into the category filters.</small
+            >
+          </label>
+          <label for="fieldBadge"
+            >Badge
+            <input
+              id="fieldBadge"
+              name="badge"
+              type="text"
+              autocomplete="off"
+              placeholder="NEW"
+            />
+          </label>
+        </div>
+
+        <fieldset class="switch-set">
+          <legend class="sr-only">Options</legend>
+          <label class="switch"
+            ><input id="fieldNotReady" name="notReady" type="checkbox" />
+            <span
+              >The game file is not in place yet — show it as “Setup
+              needed”</span
+            ></label
+          >
+          <label class="switch"
+            ><input id="fieldFeatured" name="featured" type="checkbox" />
+            <span>Consider it for the home-page spotlight</span></label
+          >
+        </fieldset>
+
+        <div class="add-actions">
+          <button type="submit" class="primary-button" id="saveDraft">
+            Save to this device
+          </button>
+          <button type="button" class="ghost-button" id="clearForm">
+            Clear form
+          </button>
+        </div>
+        <p class="hint" id="saveStatus" role="status" aria-live="polite"></p>
+      </form>
+
+      <section class="add-preview" aria-labelledby="previewHeading">
+        <h2 id="previewHeading">Catalog block</h2>
+        <p class="sub">
+          Paste this under the last <code>[game]</code> block in
+          <code>website/data/games.js</code>, inside the backtick-quoted text,
+          to keep the game for everyone.
+        </p>
+        <div class="preview-box">
+          <pre id="blockPreview" tabindex="0"></pre>
+          <button type="button" class="ghost-button" id="copyBlock">
+            Copy block
+          </button>
+        </div>
+      </section>
+
+      <section class="add-drafts" aria-labelledby="draftsHeading">
+        <h2 id="draftsHeading">
+          Games added on this device
+          <span class="count-pill" id="draftCount">0</span>
+        </h2>
+        <p class="sub" id="draftsNote">
+          These play right now, on this browser only. Clearing browser data
+          removes them.
+        </p>
+        <div id="draftList" class="draft-list"></div>
+      </section>
+
+      <section class="add-help">
+        <h2>How the pieces fit</h2>
+        <ol>
+          <li>
+            Put the game file under <code>website/games/</code> — one
+            <code>.html</code> file, or a whole folder with its own
+            <code>index.html</code>.
+          </li>
+          <li>
+            Add the entry here (or paste the block into
+            <code>website/data/games.js</code> yourself).
+          </li>
+          <li>
+            Refresh the arcade. The game appears in the grid, in search, in
+            the player, and in any collection that lists its id.
+          </li>
+        </ol>
+        <p class="hint">
+          Only add games you have the right to run or distribute. Editing
+          <code>website/data/games.js</code> by hand still works exactly as
+          before — mistakes there are reported by name and line.
+        </p>
+      </section>
+    </main>
+
+    <footer id="footerBar" aria-label="Site navigation">
+      <button type="button" ref="back" aria-label="Back to the arcade">
+        <i data-icon="arrow_back"></i><span>Arcade</span>
+      </button>
+    </footer>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script src="data/games.js"></script>
+    <script src="data/folders.js"></script>
+    <script src="assets/js/icons.js"></script>
+    <script src="assets/js/config-loader.js"></script>
+    <script src="assets/js/add.js"></script>
+  </body>
+</html>

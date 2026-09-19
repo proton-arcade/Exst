@@ -14,20 +14,12 @@
   };
   const CATEGORIES = ["All", "Action", "Adventure", "Racing", "Puzzle", "Arcade"];
 
-  function read(key, fallback) {
-    try {
-      return JSON.parse(localStorage.getItem(key)) ?? fallback;
-    } catch {
-      return fallback;
-    }
-  }
-  function save(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      toast("Your browser could not save this preference.");
-    }
-  }
+  // Saving goes through the shared helpers, which report when the browser
+  // blocks storage instead of dropping the write without a word. The single
+  // message the user sees is written where the action happens, so a failure
+  // is never overwritten by a success message.
+  const read = ExstArcade.storageGet;
+  const save = ExstArcade.storageSet;
 
   let favorites = read("exst-favorites", []);
   let recent = read("exst-recent", []);
@@ -64,6 +56,20 @@
     return asset(HERO_ART[game.id] || game.icon);
   }
 
+  /** Artwork that is used when a game's own image cannot be loaded. */
+  const DEFAULT_ART = asset("assets/images/default-game.svg");
+
+  /**
+   * Two stacked background layers: the game's artwork, then the default
+   * artwork underneath. A typo in an icon path shows the default art instead
+   * of an empty poster, so it never just silently disappears.
+   */
+  function artLayers(...paths) {
+    return [...paths, DEFAULT_ART]
+      .map((item) => `url('${escape(String(item))}')`)
+      .join(",");
+  }
+
   /** Deterministic 7.5–9.8 rating so the details page has a "Vote" line. */
   function ratingFor(game) {
     let hash = 0;
@@ -84,7 +90,9 @@
     if (!isAvailable(game)) {
       showInfo(
         "This game needs its files",
-        `<p>${escape(game.title)} is a starter entry in your editable library. Its playable build hasn’t been added yet.</p><p>Put your licensed game files at <code>${escape(asset(game.path))}</code>, then remove the <code>available=false</code> line from its entry in <code>website/data/games.js</code>.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original</button>`,
+        game.draft
+          ? `<p>${escape(game.title)} was added on this device, but its file is not in place yet.</p><p>Put the game at <code>${escape(asset(game.path))}</code> (relative to the <code>website/</code> folder), then open <a href="${escape(asset("add.html"))}">Add a game</a> and untick “The game file is not in place yet”.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original</button>`
+          : `<p>${escape(game.title)} is a starter entry in your editable library. Its playable build hasn’t been added yet.</p><p>Put your licensed game files at <code>${escape(asset(game.path))}</code>, then remove the <code>available=false</code> line from its entry in <code>website/data/games.js</code>.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original</button>`,
       );
       $("tryOriginal").onclick = () => {
         $("infoDialog").close();
@@ -108,11 +116,13 @@
     if (!game) return;
     const exists = favorites.includes(id);
     favorites = exists ? favorites.filter((x) => x !== id) : [...favorites, id];
-    save("exst-favorites", favorites);
+    const stored = save("exst-favorites", favorites);
     toast(
-      exists
-        ? `${game.title} removed from My List`
-        : `${game.title} added to My List`,
+      !stored
+        ? `${game.title} is on My List for this visit only — this browser is not saving changes.`
+        : exists
+          ? `${game.title} removed from My List`
+          : `${game.title} added to My List`,
     );
     renderAll();
     if (detailsId) syncDetailsFavorite();
@@ -122,14 +132,18 @@
 
   function poster(game) {
     const available = isAvailable(game);
-    const badge = available ? game.badge : "SETUP";
+    // A game added from inside the site says so on its poster, so it is never
+    // mistaken for a catalog entry that would survive clearing browser data.
+    const badge = game.draft ? "DRAFT" : available ? game.badge : "SETUP";
     return (
       `<div class="movie">` +
       `<button class="item${available ? "" : " is-setup"}" data-details="${escape(game.id)}" ` +
-      `style="background-image:url('${escape(asset(game.icon))}')" ` +
+      `style="background-image:${artLayers(asset(game.icon))}" ` +
       `aria-label="${available ? "View" : "Set up"} ${escape(game.title)}" title="${escape(game.title)}">` +
       (badge
-        ? `<span class="item-badge${available ? "" : " setup"}">${escape(badge)}</span>`
+        ? `<span class="item-badge${available ? "" : " setup"}${
+            game.draft ? " draft" : ""
+          }">${escape(badge)}</span>`
         : "") +
       `<span class="item-label">${escape(game.title)}</span>` +
       `</button></div>`
@@ -161,7 +175,7 @@
   function syncHero() {
     const game = heroSlides[heroIndex];
     if (!game) return;
-    $("heroCover").style.backgroundImage = `url('${heroArt(game)}')`;
+    $("heroCover").style.backgroundImage = artLayers(heroArt(game));
     $("heroKicker").textContent = `${(game.version || game.id).toUpperCase()} • IN THE SPOTLIGHT`;
     $("heroTitle").textContent = game.title;
     $("heroMeta").innerHTML =
@@ -234,7 +248,9 @@
       return false;
     if (
       query &&
-      !`${game.title} ${game.description} ${game.tags.join(" ")}`
+      // The id is searchable too: it is what the catalog file and URLs use,
+      // so "neon-pong" should find "Neon Pong".
+      !`${game.title} ${game.id} ${game.description} ${(game.tags || []).join(" ")}`
         .toLowerCase()
         .includes(query.toLowerCase())
     )
@@ -302,6 +318,13 @@
       Object.values(plays).reduce((a, b) => a + (Number(b) || 0), 0),
     );
     $("favoriteCount").textContent = String(favorites.length);
+    const drafts = data.games.filter((game) => game.draft).length;
+    const draftCount = $("draftCount");
+    if (draftCount)
+      draftCount.textContent = drafts
+        ? `${drafts} added on this device →`
+        : "0 added on this device →";
+    renderCatalogStatus();
     $("aboutFolders").innerHTML = data.folders
       .map(
         (folder) =>
@@ -320,6 +343,85 @@
     if (window.renderIcons) window.renderIcons(document);
   }
 
+  /* ---------- Catalog edit feedback ---------- */
+
+  /**
+   * Every edit to website/data/games.js or folders.js is either read
+   * correctly or reported here — a half-saved entry never disappears
+   * without a word.
+   */
+  function renderCatalogNotice(problems) {
+    const host = $("catalogNotice");
+    if (!host) return;
+    host.innerHTML = ExstArcade.catalogNoticeHtml(problems);
+  }
+
+  /**
+   * A catalog edit that stops the library from loading is reported in the
+   * hero, where the user is already looking — never as an empty arcade or a
+   * page stuck on "Loading…".
+   */
+  function showCatalogFailure(error) {
+    const hint =
+      error.hint ||
+      "Make sure website/data/games.js and website/data/folders.js are present, then try again.";
+    const catalogError = error.name === "CatalogError";
+    document.body.classList.add("catalog-broken");
+    $("heroKicker").textContent = "CATALOG ERROR";
+    $("heroTitle").textContent = catalogError
+      ? "The game library could not be read"
+      : "The arcade couldn’t load";
+    $("heroOverview").textContent =
+      "Fix the catalog file described below, save it, then reload this page.";
+    $("heroMeta").innerHTML = "";
+    $("heroCategories").textContent = "";
+    $("heroDots").innerHTML = "";
+    const options = document.querySelector(".hero-content .options");
+    if (options) options.hidden = true;
+    $("rows").innerHTML = "";
+    const notice = document.createElement("section");
+    notice.className = "catalog-notice hero-notice";
+    notice.setAttribute("role", "alert");
+    notice.innerHTML =
+      `<div class="notice-head"><span class="notice-chip">CATALOG ERROR</span></div>` +
+      `<p class="notice-lead">${escape(error.message)}</p>` +
+      `<p class="notice-hint">${escape(hint)}</p>` +
+      `<p class="notice-hint">Nothing is lost: fix the file and reload — every other page of the arcade is unaffected.</p>` +
+      `<button class="primary-button" id="retryLoad">Reload the page</button>`;
+    document.querySelector(".hero-content").appendChild(notice);
+    $("retryLoad").addEventListener("click", () => location.reload());
+  }
+
+  function renderStorageStatus() {
+    const notice = ExstArcade.storageNoticeText();
+    if (!notice) return;
+    const hint = document.querySelector(".pref-block .hint");
+    if (hint)
+      hint.innerHTML = `${escape(notice)} Keyboard tip: press <kbd>/</kbd> to find a game instantly.`;
+  }
+
+  function renderCatalogStatus() {
+    const host = $("catalogStatus");
+    if (!host) return;
+    const files = ExstArcade.catalogFiles;
+    const problems = (data && data.problems) || [];
+    const storage = ExstArcade.storageNoticeText();
+    host.innerHTML =
+      `<strong>Catalog:</strong> ${data.games.length} game${
+        data.games.length === 1 ? "" : "s"
+      } and ${data.folders.length} collection${
+        data.folders.length === 1 ? "" : "s"
+      } read from <code>${escape(files.games)}</code> and <code>${escape(
+        files.folders,
+      )}</code> when this page loaded.${
+        problems.length
+          ? ` <strong>${problems.length} problem${
+              problems.length === 1 ? "" : "s"
+            } found</strong> — open the Catalog check notice on Home.`
+          : " Your edits show up here as soon as the page is refreshed."
+      }${storage ? ` <strong>${escape(storage)}</strong>` : ""}`;
+  }
+
   /* ---------- Details slide-in ---------- */
 
   function openDetails(id) {
@@ -330,7 +432,7 @@
       return;
     }
     detailsId = id;
-    $("detailsCover").style.backgroundImage = `url('${heroArt(game)}')`;
+    $("detailsCover").style.backgroundImage = artLayers(heroArt(game));
     $("detailsTitle").textContent = game.title;
     $("detailsHeadTitle").textContent = game.title;
     $("detailsOverview").textContent =
@@ -345,6 +447,15 @@
       .join("");
     $("detailsPlay").dataset.play = game.id;
     $("detailsDirect").href = asset(game.path);
+    const draftNote = $("detailsDraftNote");
+    if (draftNote) {
+      draftNote.hidden = !game.draft;
+      draftNote.innerHTML = game.draft
+        ? `<strong>Added on this device.</strong> Open <a href="${escape(
+            asset("add.html"),
+          )}">Add a game</a> to copy its catalog block into <code>website/data/games.js</code> — that is what makes it permanent and visible to everyone.`
+        : "";
+    }
     const panel = $("detailsPage");
     panel.hidden = false;
     requestAnimationFrame(() => panel.classList.add("open"));
@@ -530,14 +641,12 @@
       if (!heroSlides.length) heroSlides = data.games.slice(0, 6);
       renderHero();
       renderAll();
+      renderCatalogNotice(result.problems);
+      renderStorageStatus();
       ExstArcade.bindOpenModeSelect();
       routeFromHash();
       syncHeader();
       restartHeroTimer();
     })
-    .catch((error) => {
-      $("rows").innerHTML =
-        `<div class="empty-state"><h3>The arcade couldn’t load</h3><p>${escape(error.message)}. Make sure <code>website/data/games.js</code> and <code>website/data/folders.js</code> are present, then try again.</p><button class="primary-button" id="retryLoad">Try again</button></div>`;
-      $("retryLoad").addEventListener("click", () => location.reload());
-    });
+    .catch(showCatalogFailure);
 })();

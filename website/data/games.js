@@ -6,7 +6,15 @@
  *        - single file :  website/games/retro-pong.html
  *        - whole folder:  website/games/retro-pong/index.html
  *          (just unzip the game straight into a new folder inside games/)
- *   2. Paste a [game] block below and change the values.
+ *   2. Paste a [game] block BELOW THIS COMMENT, INSIDE the backtick-quoted
+ *      text, and change the values.
+ *
+ *      !! Every block must start with its own [game] line, and it must sit
+ *      !! before the closing backtick at the end of this file. Text pasted
+ *      !! after that backtick, or a stray backtick inside a description, is
+ *      !! a JavaScript error: the whole library disappears from the site.
+ *      !! The page tells you when that happens (Catalog check notice) and
+ *      !! points you back here, so nothing fails silently.
  *
  * The game appears in the dashboard, the player, and any folder that lists it.
  * No restart, no server, no build step — just refresh the page.
