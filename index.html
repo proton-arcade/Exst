@@ -18,7 +18,7 @@
     />
     <meta
       property="og:image"
-      content="website/assets/images/neon-drift-hero.webp"
+      content="website/assets/images/default-game.svg"
     />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="ExstArcade - Your next favorite game awaits" />
@@ -28,7 +28,7 @@
     />
     <meta
       name="twitter:image"
-      content="website/assets/images/neon-drift-hero.webp"
+      content="website/assets/images/default-game.svg"
     />
     <link
       rel="icon"
@@ -80,6 +80,12 @@
               </button>
               <button class="flat-btn" id="heroDetails" data-details="">
                 <i data-icon="info"></i><span>Details</span>
+              </button>
+              <button class="flat-btn" id="heroEdit">
+                <i data-icon="settings"></i><span>Edit spotlight</span>
+              </button>
+              <button class="flat-btn" id="heroHowTo" hidden>
+                <i data-icon="add"></i><span>Add a game</span>
               </button>
             </div>
             <div class="hero-dots" id="heroDots" role="group" aria-label="Featured games"></div>
@@ -144,12 +150,21 @@
           <h1>What's new</h1>
           <p class="sub">Fresh from the arcade, plus your recent plays.</p>
           <div class="news-card">
-            <span class="daily-chip">THE ORIGINALS ARE HERE</span>
-            <h3>Six little escapes. Zero downloads.</h3>
+            <span class="daily-chip">THE TOP CAROUSEL IS YOURS</span>
+            <h3>Pick what cycles up top</h3>
             <p>
-              Meet Neon Drift, Neon Snake, 2048, Cosmic Escape, Memory Match,
-              and Brick Breaker. Each one is built into your arcade and ready
-              to play.
+              Press <strong>Edit spotlight</strong> on the home page to tick
+              the games that should rotate in the big cover, and set the
+              order. Your choice is remembered on this device.
+            </p>
+          </div>
+          <div class="news-card">
+            <h3>Adding a game is one block</h3>
+            <p>
+              Drop the game file into <code>website/games/</code> and paste a
+              single <code>[game]</code> block into
+              <code>website/data/games.js</code>. Refresh the page — that's
+              the whole process.
             </p>
           </div>
           <div class="news-card">
@@ -185,15 +200,25 @@
               <kbd>/</kbd> to find a game instantly.
             </p>
           </div>
+          <h2>Your games</h2>
+          <div class="folder-links">
+            <a href="#home" id="aboutSpotlight"
+              ><span>Edit the spotlight</span
+              ><small id="aboutSpotlightCount">choose the top carousel →</small></a
+            >
+          </div>
+          <p class="body catalog-status" id="catalogNotes" hidden></p>
           <h2>Collections</h2>
           <div class="folder-links" id="aboutFolders"></div>
           <h2>Made for a quick escape</h2>
           <p class="body">
             Exst Arcade is a free, lightweight home for browser games — no
-            accounts, subscriptions, or downloads required. Six original
-            minigames are included. Keep building your collection by editing
-            <code>website/data/games.js</code> and dropping your game files
-            into <code>website/games/</code>.
+            accounts, subscriptions, or downloads required. The library is
+            yours to fill: drop a game into <code>website/games/</code>, paste
+            one <code>[game]</code> block into
+            <code>website/data/games.js</code>, and refresh. The same file
+            documents every field, including <code>hero=true</code> for the
+            spotlight carousel.
           </p>
           <p class="body">
             Look inspired by
@@ -271,6 +296,25 @@
         </button>
       </div>
       <div id="dialogContent"></div>
+    </dialog>
+
+    <!-- Spotlight editor: choose and order the games in the top carousel -->
+    <dialog
+      id="spotlightDialog"
+      class="arcade-dialog spotlight-dialog"
+      aria-labelledby="spotlightHeading"
+    >
+      <div class="dialog-header">
+        <h2 id="spotlightHeading">Edit the spotlight</h2>
+        <button
+          class="icon-button"
+          id="closeSpotlight"
+          aria-label="Close spotlight editor"
+        >
+          <i data-icon="x"></i>
+        </button>
+      </div>
+      <div id="spotlightContent"></div>
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="website/data/games.js"></script>

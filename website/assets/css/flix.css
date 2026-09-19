@@ -446,14 +446,6 @@ body.flix .icon {
   text-shadow: none;
 }
 
-.movie .item-badge.setup {
-  background: #555;
-}
-
-.movie .item.is-setup {
-  filter: saturate(0.4);
-}
-
 .about-box {
   margin-top: 56px;
   margin-bottom: 48px;
@@ -1480,4 +1472,174 @@ body.folder-page {
   .movie .item {
     transition: none;
   }
+}
+
+/* Hero actions that only make sense with a library */
+
+.hero-content button:disabled,
+.hero-content button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* The hero buttons swap depending on whether the library has games yet. */
+.hero-content button.flat-btn[hidden] {
+  display: none;
+}
+
+/* Spotlight editor dialog (choose + order the top carousel) */
+
+.spotlight-dialog {
+  max-width: 620px;
+}
+
+.spotlight-dialog .spot-note {
+  color: var(--muted, #aaa7b5);
+  font-size: 90%;
+  line-height: 1.7;
+  margin: 0 0 16px;
+}
+
+.spot-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1px solid #3a3944;
+  border-radius: 8px;
+}
+
+.spot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #2c2b34;
+}
+
+.spot-row:last-child {
+  border-bottom: 0;
+}
+
+.spot-row.is-on {
+  background: #262630;
+}
+
+.spot-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  cursor: pointer;
+  font-size: 100%;
+}
+
+.spot-pick input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--flix-red, #dd3532);
+}
+
+.spot-title {
+  color: #fff;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spot-id {
+  color: #7d7d8a;
+  font-size: 85%;
+  white-space: nowrap;
+}
+
+.spot-move {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.mini-button {
+  border: 1px solid #46454f;
+  background: #24242c;
+  color: #fff;
+  border-radius: 5px;
+  width: 30px;
+  height: 30px;
+  font-size: 100%;
+  line-height: 1;
+}
+
+.mini-button:disabled {
+  opacity: 0.35;
+}
+
+.spot-count {
+  font-size: 90%;
+  color: #b7b5c0;
+  margin: 0 0 14px;
+}
+
+.spot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.spot-actions .primary-button {
+  background: var(--flix-red, #dd3532);
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.spot-actions .ghost {
+  background: transparent;
+  color: #fff;
+  border: 1px solid #55535f;
+  border-radius: 4px;
+  padding: 10px 18px;
+  font-family: inherit;
+}
+
+#spotCopyBox textarea {
+  width: 100%;
+  min-height: 150px;
+  background: #111216;
+  color: #d9d8e0;
+  border: 1px solid #3a3944;
+  border-radius: 6px;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.starter-block {
+  background: #111216;
+  border: 1px solid #3a3944;
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 12px;
+  color: #cdd6e6;
+}
+
+#dialogContent h3 {
+  color: #fff;
+}
+
+.catalog-status {
+  border-left: 3px solid var(--flix-red, #dd3532);
+  padding-left: 12px;
+  color: #d8c7c4;
+}
+
+.catalog-status strong {
+  color: #fff;
 }

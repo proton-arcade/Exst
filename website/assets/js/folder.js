@@ -5,10 +5,6 @@ const $ = (id) => document.getElementById(id);
 const escape = ExstArcade.escapeHtml;
 const asset = ExstArcade.assetUrl;
 
-const HERO_ART = {
-  "neon-drift": "assets/images/neon-drift-hero.webp",
-};
-
 function read(key, fallback) {
   try {
     return JSON.parse(localStorage.getItem(key)) ?? fallback;
@@ -43,12 +39,8 @@ function toast(message) {
   toastTimer = setTimeout(() => $("toast").classList.remove("visible"), 2500);
 }
 
-function isAvailable(game) {
-  return game.available !== false && game.available !== "false";
-}
-
 function heroArt(game) {
-  return asset(HERO_ART[game.id] || game.icon);
+  return ExstArcade.spotlightArt(game);
 }
 
 function ratingFor(game) {
@@ -57,27 +49,9 @@ function ratingFor(game) {
   return (7.5 + (hash % 24) / 10).toFixed(1);
 }
 
-function showInfo(title, content) {
-  $("dialogTitle").textContent = title;
-  $("dialogContent").innerHTML = content;
-  if (window.renderIcons) window.renderIcons($("infoDialog"));
-  $("infoDialog").showModal();
-}
-
 function play(id, event) {
   const game = arcade.byId.get(id);
   if (!game) return;
-  if (!isAvailable(game)) {
-    showInfo(
-      "This game needs its files",
-      `<p>${escape(game.title)} is a starter entry in your editable library. Its playable build hasn’t been added yet.</p><p>Put your licensed game files at <code>${escape(asset(game.path))}</code>, then remove the <code>available=false</code> line from its entry in <code>website/data/games.js</code>.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original</button>`,
-    );
-    $("tryOriginal").onclick = () => {
-      $("infoDialog").close();
-      play("neon-snake");
-    };
-    return;
-  }
   plays[id] = (Number(plays[id]) || 0) + 1;
   save("exst-game-plays", plays);
   recent = [id, ...recent.filter((x) => x !== id)].slice(0, 30);
@@ -106,10 +80,6 @@ function toggleFavorite(id) {
 function openDetails(id) {
   const game = arcade.byId.get(id);
   if (!game) return;
-  if (!isAvailable(game)) {
-    play(id);
-    return;
-  }
   detailsId = id;
   $("detailsCover").style.backgroundImage = `url('${heroArt(game)}')`;
   $("detailsTitle").textContent = game.title;

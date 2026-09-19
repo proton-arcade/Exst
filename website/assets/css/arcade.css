@@ -1278,10 +1278,6 @@ button:hover {
   background: linear-gradient(100deg, #282537, #201e29);
   border-color: #353145;
 }
-.original-collection {
-  background: linear-gradient(100deg, #222d2a, #1e2324);
-  border-color: #303a35;
-}
 .collection-icon {
   display: grid;
   place-items: center;
@@ -1297,11 +1293,6 @@ button:hover {
   color: #b29ae9;
   background: #58487933;
   border-color: #66508533;
-}
-.original-collection .collection-icon {
-  color: #8eb79f;
-  background: #48624c33;
-  border-color: #58715733;
 }
 .collection-icon .icon {
   width: 18px;

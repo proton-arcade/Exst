@@ -1,16 +1,20 @@
 # Exst Arcade
 
 A responsive, static browser-game website built on the **Hybrid Bootstrap
-Admin Template** by WebThemez, with a custom dark/coral theme, locally hosted
-fonts and artwork, and six playable original minigames. No backend, no
-account, no build step, and **no web server**: the whole site is static and
-runs straight from the file system.
+Admin Template** by WebThemez, restyled as a Netflix-like portal: fixed
+header, a spotlight carousel at the top, horizontal poster rows, a slide-in
+details panel, and a bottom tab bar. No backend, no account, no build step,
+and **no web server**: the whole site is static and runs straight from the
+file system.
+
+The library ships **empty on purpose**. Every game on the site is one you add
+to a single text file, so there is nothing to delete before you start.
 
 ## Run it (no server needed)
 
 Open **`index.html`** in any browser — double-click it, or drag it in. That's
-it. The game library loads from plain `<script>` tags, so `file://` works
-exactly like a hosted deployment.
+it. The game list loads from plain `<script>` tags, so `file://` works exactly
+like a hosted deployment.
 
 Optional HTTP mode (only needed if you want pretty URLs or are testing):
 
@@ -31,8 +35,8 @@ README.md
 website/
   assets/           css, fonts, images, js, vendor (Hybrid template)
   data/
-    games.js        the game catalog  ← add games here (one block each)
-    folders.js      the collections   ← add folders here (one block each)
+    games.js        the game list      ← add games here (one block each)
+    folders.js      the collections    ← add folders here (one block each)
   games/            game files: one .html per game, or a folder per game
   mc/               (your unzipped Minecraft client folders — git-ignored)
   game.html         the game player (game.html?id=<game-id>)
@@ -47,46 +51,76 @@ from its own script tag, so the same catalog works from both pages.
 
 ## Add a game (about one minute)
 
-1. **Put the game in `website/games/`.**
-   - Single file: `website/games/retro-pong.html`
-   - Whole folder (e.g. an unzipped download): `website/games/retro-pong/index.html`
-     — just unzip it straight into a new folder.
-2. **Paste one block into `website/data/games.js`** and edit the values:
+1. **Put the game in `website/games/`** — a single file, or a folder whose
+   main file is `index.html`:
+
+   ```
+   website/games/retro-pong.html
+   website/games/retro-pong/index.html
+   ```
+
+2. **Paste one block into `website/data/games.js`** and change the values:
 
    ```txt
    [game]
    id=retro-pong
    title=Retro Pong
    path=games/retro-pong.html
-   icon=assets/images/retro-pong.webp
-   description=A short, honest description of the game.
+   icon=assets/images/default-game.svg
+   version=HTML build
+   description=Two paddles, one ball, and a rivalry that never ends.
    tags=Arcade, Action
    ```
-
-   `id`, `title`, and `path` are required; `path` is relative to
-   `website/`. Category tags `Action`, `Adventure`, `Racing`, `Puzzle`,
-   `Arcade` plug into the sidebar filters. If the game isn't ready yet, add
-   `available=false` — it shows as "Setup needed" until you remove the line.
 
 That's all. Refresh `index.html` and the game is in the grid, in the player
 (`website/game.html?id=retro-pong`), in search, and in any collection that
 lists it. No restart, no build.
 
-To try a game without listing it, open
-`website/game.html?path=games/your-game.html` — any game file can be played
-directly.
+**Remove a game** by deleting its `[game]` block (and the game file, if you
+want). Nothing else refers to it.
 
-### Starter entries and the Minecraft slots
+### Fields
 
-The catalog ships with **unavailable** starter entries (FNAF, Backrooms,
-Paper.io 2, and Minecraft release slots). They are honest placeholders —
-wired into the launcher but marked *Setup needed* until real files exist.
-Only enable them (`available=false` → remove the line) once you have placed
-builds **you have the rights to run** at the configured paths:
+| Field         | What it does                                                     |
+| ------------- | ---------------------------------------------------------------- |
+| `id`          | Unique key, lowercase, used in links and My List — **required**   |
+| `title`       | Name on the card — **required**                                   |
+| `path`        | Game file relative to `website/` — **required**                   |
+| `icon`        | Card artwork, relative to `website/` (webp/png/jpg/svg)           |
+| `version`     | Small kicker line on the card, e.g. `HTML build`                  |
+| `description` | One or two honest lines for the card and details panel            |
+| `tags`        | Comma separated; `Action`, `Adventure`, `Racing`, `Puzzle`, `Arcade` plug into the search filters |
+| `badge`       | Short label such as `NEW` or `HOT`                                |
+| `featured`    | `true` = also eligible for the "Top rated" row                    |
+| `hero`        | `true` = cycles in the spotlight carousel at the top of the page  |
+| `heroart`     | Wide artwork for the carousel; blank falls back to `icon`         |
 
-- Minecraft slots expect unzipped clients under `website/mc/`
-  (e.g. `website/mc/1.12.2/index.html`). Those folders are git-ignored;
-  drop them in locally or on your host.
+Lines starting with `#` are comments. Only add games you have the right to run
+or share. Old fields from earlier versions (`original`, `available`,
+`bundled`, `wasm`) are ignored, and the About page says so instead of failing
+silently.
+
+### The spotlight (the carousel at the top)
+
+The big cover that cycles on the home page is driven by `hero=true`, in the
+order the blocks appear in `games.js`:
+
+```txt
+[game]
+id=retro-pong
+...
+hero=true
+```
+
+You can also edit it without touching the file: press **Edit spotlight** in
+the hero on the home page, tick the games you want, and move them with ↑ ↓.
+That choice is saved in the current browser, and the dialog's
+**Copy for data/games.js** button hands you a ready-to-paste catalog with the
+same order and `hero=true` already set — that is how you make it permanent for
+everyone.
+
+If no game has `hero=true`, the carousel falls back to `featured=true` games,
+then to the first six games in the file.
 
 ## Add a collection (folder)
 
@@ -94,81 +128,68 @@ Paste one block into `website/data/folders.js`:
 
 ```txt
 [folder]
-id=my-folder
-title=My collection
-description=Games for a rainy afternoon.
+id=quick-play
+title=Quick rounds
+description=Games that make sense when you only have a few minutes.
 icon=assets/images/folder.svg
-games=neon-snake, 2048, retro-pong
+games=retro-pong, your-next-game
 ```
 
-`games` is a comma-separated list of game `id`s. The folder shows up as its
+`games` is a comma-separated list of game `id`s. The collection shows up as its
 own poster row on the home page, under **About → Collections**, and at
-`website/folder.html?id=my-folder`.
+`website/folder.html?id=quick-play`. IDs that don't exist are reported on the
+About page.
 
 ## Included features
 
 - Netflix-style home screen: fixed header, 90vh hero cover with Play / My
   List / Details, horizontal poster galleries, and a bottom tab bar
   (Home, Search, New, About).
-- Featured-game hero rotation, category chips, live search, sorting, and
-  curated collections.
+- Spotlight carousel with dots, auto-rotation, and the in-page editor
+  described above.
+- Category chips, live search, sorting, and curated collections.
 - My List favorites, recent plays, play counts, launch preferences, and high
   scores saved in the current browser's local storage.
 - A game player with reload, fullscreen, and direct/new-tab launch options.
-- Keyboard controls, on-screen direction buttons, and touch controls in the
-  original games.
 - Accessible labels, keyboard focus styles, skip navigation, reduced-motion
   support, and native dialogs.
-- Clear "setup needed" states for placeholder game entries.
-
-## Six playable originals
-
-| Game          | How to play                                                               |
-| ------------- | ------------------------------------------------------------------------- |
-| Neon Drift    | Left/right or A/D to change lanes and avoid traffic.                      |
-| Neon Snake    | Arrow keys or WASD to collect food without hitting the walls or yourself. |
-| 2048          | Arrow keys, WASD, or swipe to merge equal tiles and reach 2048.           |
-| Cosmic Escape | Arrow keys, WASD, or drag to dodge asteroids and collect stars.           |
-| Memory Match  | Click/tap cards to find all eight matching pairs in fewer moves.          |
-| Brick Breaker | Mouse, touch, or left/right to move the paddle and clear the bricks.      |
-
-Use the on-screen buttons on touch devices. Pause/resume and restart are
-available in every original game. Press Space to start or pause canvas games,
-or Escape to pause. The game artwork is AI-generated promotional art; the
-games themselves are lightweight canvas/DOM minigames.
+- Editable-by-hand catalog files that report anything they had to ignore.
 
 ## Local data and privacy
 
 There is no authentication, analytics, tracking, cloud sync, or remote
-leaderboard. Favorites, recents, preferences, and high scores are stored only
-in the current browser's local storage on your device; clearing browser data
-resets them. All content is local to the repository — no third-party scripts
-are loaded at runtime. Because the player embeds game files in an iframe,
-only add games you trust.
+leaderboard. Favorites, recents, preferences, the spotlight order, and high
+scores are stored only in the current browser's local storage on your device;
+clearing browser data resets them. All content is local to the repository — no
+third-party scripts are loaded at runtime. Because the player embeds game files
+in an iframe, only add games you trust.
 
 ## Tests
 
 ```sh
 cd website
 npm install
-npm test                        # catalog parsing, IDs, files, references, URL rules
+npm test                        # catalog parsing, spotlight ordering, removals
 npm start                       # in a second terminal, for the browser suite
-npm run test:browser            # Playwright: dashboard, player, all six games,
-                                # collections, mobile widths, plus a no-server
-                                # file:// smoke test
+npm run test:browser            # Playwright: dashboard, spotlight editor,
+                                # player, collections, mobile widths, file://
 ```
 
-The Node tests validate catalog parsing, unique IDs, file existence, folder
-references, URL building, and escaping. The browser suite covers search,
-categories, sorting, persistent favorites, launch preferences, setup dialogs,
-2048 scoring, every original game's start/pause/restart, a complete Memory
-Match win, mobile navigation, horizontal overflow at four widths, and opening
-the whole site over `file://` with no server. Screenshots are written to the
-ignored `.test-artifacts/` directory.
+The Node tests validate catalog parsing, spotlight ordering and fallbacks,
+retired-field and dangling-folder reporting, URL building, escaping, and that
+nothing that shipped still references the removed games. The browser suite
+covers the empty-library states, the spotlight editor (tick, reorder, save,
+persist across reload, copy-out), search, favorites, the player, mobile
+navigation, horizontal overflow at four widths, and opening the whole site
+over `file://` with no server. Screenshots are written to the ignored
+`.test-artifacts/` directory.
 
 ## Attribution
 
 Adapted from [Hybrid Bootstrap Admin Template](https://github.com/learning-zone/website-templates/tree/master/hybrid-bootstrap-admin-template) by [WebThemez](https://webthemez.com/), licensed under [Creative Commons Attribution 3.0](https://creativecommons.org/licenses/by-3.0/). Original template attribution is preserved in the source and the site's footer. See `website/assets/vendor/hybrid/ATTRIBUTION.md`.
+
+Look inspired by [JuegoAmigo.github.io](https://github.com/JuegoAmigo/juegoamigo.github.io)
+and the zuix-web-flix template.
 
 Bootstrap is MIT licensed. DM Sans and Space Grotesk are locally hosted under
 the SIL Open Font License; license files are in `website/assets/fonts/`.

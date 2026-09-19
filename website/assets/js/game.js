@@ -25,8 +25,8 @@ function isSafeDirectPath(value) {
 
 /**
  * Best-effort check that the game file exists. Over file:// the browser will
- * not let us probe the filesystem, so we trust the catalog's available flag
- * there; over http(s) we can confirm with a HEAD request.
+ * not let us probe the filesystem, so we assume the catalog is right; over
+ * http(s) we can confirm with a HEAD request.
  */
 async function pathLooksAvailable(path) {
   if (!path || path === "#") return false;
@@ -62,7 +62,6 @@ async function resolveGame() {
       description: "",
       tags: [],
       path: directPath,
-      available: true,
     };
   }
   const arcade = await ExstArcade.loadArcadeData();
@@ -101,9 +100,7 @@ async function bootGame() {
         document.getElementById("fullscreenGame").textContent = "Use new tab";
       }
     });
-  const available =
-    game.available !== false && (await pathLooksAvailable(target));
-  if (available) {
+  if (await pathLooksAvailable(target)) {
     frame.src = target;
     fallback.hidden = true;
     frame.hidden = false;
