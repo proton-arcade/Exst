@@ -41,7 +41,6 @@ website/
   mc/               (your unzipped Minecraft client folders — git-ignored)
   game.html         the game player (game.html?id=<game-id>)
   folder.html       collection pages (folder.html?id=<folder-id>)
-  add.html          add a game without a text editor (saves to this device)
   package.json      optional test/dev scripts
   tests/            catalog + Playwright browser suites
 ```
@@ -157,29 +156,6 @@ everyone.
 If no game has `hero=true`, the carousel falls back to `featured=true` games,
 then to the first six games in the file.
 
-## Add a game without a text editor
-
-Open **`website/add.html`** (linked from **About → Your games**). Fill in the
-form and the game is added to the arcade immediately — no text editor, no
-restart. The page checks the same rules the catalog loader does, so an id that
-is taken, a path that is not a game file, or a missing title is explained
-before anything is stored.
-
-Games added this way are saved **on this device only** (browser local storage)
-and are badged **DRAFT** so they are never mistaken for catalog entries. They
-appear in the grid, search, the player, and collections that list their id.
-The page also prints the exact `[game]` block to paste into
-`website/data/games.js` — pasting it there is what makes a game permanent and
-visible to everyone who opens the site.
-
-```
-Add a game (website/add.html)
-  ↓ save
-this device's browser storage   →  playable right away, DRAFT badge
-  ↓ copy the block, paste it into website/data/games.js
-the catalog                     →  part of the site itself
-```
-
 ## Add a collection (folder)
 
 Paste one block into `website/data/folders.js`:
@@ -267,8 +243,7 @@ default art instead of an empty tile.
 The browser suite covers search, categories, sorting, persistent favorites,
 launch preferences, the spotlight editor (tick, reorder, save, persist across
 reload, copy-out), the on-screen Catalog check notice (and its dismiss button),
-the "game library could not be read" panel, an end-to-end catalog edit, adding a
-game from inside the site (validated, saved, playable, badged, removable), a
+the "game library could not be read" panel, an end-to-end catalog edit, a
 browser that blocks local storage (everything still loads, plays, and says
 plainly that nothing is being kept), the empty-library states, favorites, the
 player, mobile navigation, horizontal overflow at four widths, and opening the

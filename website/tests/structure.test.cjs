@@ -26,16 +26,6 @@ const PAGES = [
     ],
   },
   {
-    file: "website/add.html",
-    scripts: [
-      "data/games.js",
-      "data/folders.js",
-      "assets/js/icons.js",
-      "assets/js/config-loader.js",
-      "assets/js/add.js",
-    ],
-  },
-  {
     file: "website/folder.html",
     scripts: [
       "data/games.js",
@@ -70,7 +60,7 @@ const RUNTIME_IDS = new Map([
       "spotCount",
       "spotCopyBox",
       "spotCopyText",
-      "copyStarter", // built by the "Add a game" help dialog
+      "copyStarter", // built by the starter-block help dialog
     ]),
   ],
   [
@@ -244,7 +234,6 @@ test("the loader's public API is present and callable", () => {
   const source = read("website/assets/js/config-loader.js");
   const api = [
     "loadArcadeData",
-    "parseBlockText",
     "bindOpenModeSelect",
     "createGameCard",
     "catalogNoticeHtml",
@@ -252,11 +241,6 @@ test("the loader's public API is present and callable", () => {
     "storageGet",
     "storageSet",
     "storageNoticeText",
-    "draftBlocks",
-    "buildGameBlock",
-    "validateGameFields",
-    "saveDraft",
-    "deleteDraft",
     "gameUrl",
     "homeUrl",
     "getOpenMode",
@@ -280,7 +264,6 @@ test("every page that shows the arcade has the shared UI hooks", () => {
   const css = read("website/assets/css/flix.css");
   assert.match(css, /\.catalog-notice\b/, "notice styles are missing");
   assert.match(css, /\.storage-note\b/, "storage note styles are missing");
-  assert.match(css, /\.item-badge\.draft\b/, "draft badge styles are missing");
 });
 
 test("the site's own pages never promise what they cannot keep", () => {
