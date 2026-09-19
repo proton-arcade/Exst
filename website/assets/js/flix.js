@@ -112,17 +112,13 @@
   /* ---------- Posters ---------- */
 
   function poster(game) {
-    // A game added from inside the site says so on its poster, so it is never
-    // mistaken for a catalog entry that would survive clearing browser data.
-    const badge = game.draft ? "DRAFT" : game.badge;
+    const badge = game.badge;
     return (
       `<div class="movie">` +
       `<button class="item" data-details="${escape(game.id)}" ` +
       `style="background-image:${artLayers(asset(game.icon))}" ` +
       `aria-label="View ${escape(game.title)}" title="${escape(game.title)}">` +
-      (badge
-        ? `<span class="item-badge${game.draft ? " draft" : ""}">${escape(badge)}</span>`
-        : "") +
+      (badge ? `<span class="item-badge">${escape(badge)}</span>` : "") +
       `<span class="item-label">${escape(game.title)}</span>` +
       `</button></div>`
     );
@@ -254,14 +250,14 @@ description=Two paddles, one ball, and a rivalry that never ends.
 tags=Arcade, Action
 hero=true`;
 
-  let spotlightDraft = []; // [{ id, on }] in the order shown in the dialog
+  let spotlightSelection = []; // [{ id, on }] in the order shown in the dialog
 
   function applySpotlight() {
     heroSlides = ExstArcade.spotlightGames(data.games, read(SPOTLIGHT_KEY, []));
     heroIndex = 0;
   }
 
-  function buildSpotlightDraft() {
+  function buildSpotlightSelection() {
     const onIds = ExstArcade.spotlightGames(
       data.games,
       read(SPOTLIGHT_KEY, []),
@@ -276,9 +272,9 @@ hero=true`;
   function syncSpotlightCount() {
     const count = $("spotCount");
     if (!count) return;
-    const chosen = spotlightDraft.filter((row) => row.on).length;
+    const chosen = spotlightSelection.filter((row) => row.on).length;
     count.textContent =
-      `${chosen} of ${spotlightDraft.length} game${spotlightDraft.length === 1 ? "" : "s"} in the spotlight.` +
+      `${chosen} of ${spotlightSelection.length} game${spotlightSelection.length === 1 ? "" : "s"} in the spotlight.` +
       (chosen
         ? ""
         : " Nothing ticked, so the carousel falls back to games marked hero=true.");
@@ -287,8 +283,8 @@ hero=true`;
   /** Keep the ↑ ↓ buttons and their labels in step with the new order. */
   function renumberSpotlightRows() {
     [...$("spotlightList").children].forEach((row, i) => {
-      const last = spotlightDraft.length - 1;
-      const game = data.byId.get(spotlightDraft[i].id);
+      const last = spotlightSelection.length - 1;
+      const game = data.byId.get(spotlightSelection[i].id);
       row.querySelector("[data-spot-toggle]").dataset.spotToggle = String(i);
       const up = row.querySelector("[data-spot-up]");
       const down = row.querySelector("[data-spot-down]");
@@ -303,10 +299,10 @@ hero=true`;
 
   function moveSpotlightRow(index, delta) {
     const target = index + delta;
-    if (target < 0 || target >= spotlightDraft.length) return;
-    [spotlightDraft[index], spotlightDraft[target]] = [
-      spotlightDraft[target],
-      spotlightDraft[index],
+    if (target < 0 || target >= spotlightSelection.length) return;
+    [spotlightSelection[index], spotlightSelection[target]] = [
+      spotlightSelection[target],
+      spotlightSelection[index],
     ];
     const list = $("spotlightList");
     const nodes = [...list.children];
@@ -325,8 +321,8 @@ hero=true`;
         `<button class="ghost" data-spot-close="1">Close</button></div>`;
       return;
     }
-    const last = spotlightDraft.length - 1;
-    const rows = spotlightDraft
+    const last = spotlightSelection.length - 1;
+    const rows = spotlightSelection
       .map((row, i) => {
         const game = data.byId.get(row.id);
         return (
@@ -359,11 +355,10 @@ hero=true`;
 
   /** The whole catalog as text, in the chosen spotlight order. */
   function catalogText() {
-    const chosen = spotlightDraft.filter((row) => row.on).map((row) => row.id);
+    const chosen = spotlightSelection.filter((row) => row.on).map((row) => row.id);
     const order = [
       ...chosen,
       ...data.games
-        .filter((game) => !game.draft)
         .map((game) => game.id)
         .filter((id) => !chosen.includes(id)),
     ];
@@ -392,7 +387,7 @@ hero=true`;
   }
 
   function saveSpotlight() {
-    const ids = spotlightDraft.filter((row) => row.on).map((row) => row.id);
+    const ids = spotlightSelection.filter((row) => row.on).map((row) => row.id);
     const stored = save(SPOTLIGHT_KEY, ids);
     applySpotlight();
     renderHero();
@@ -411,7 +406,7 @@ hero=true`;
   function resetSpotlight() {
     save(SPOTLIGHT_KEY, []);
     applySpotlight();
-    spotlightDraft = buildSpotlightDraft();
+    spotlightSelection = buildSpotlightSelection();
     renderSpotlightDialog();
     renderHero();
     restartHeroTimer();
@@ -442,8 +437,7 @@ hero=true`;
         `<p><strong>2.</strong> Paste this block into <code>website/data/games.js</code> (inside the backticked text) and change the values:</p>` +
         `<pre class="starter-block">${escape(STARTER_BLOCK)}</pre>` +
         `<p><code>hero=true</code> puts the game in the carousel at the top of this page. Save the file and refresh — ` +
-        `no build step, no restart. The same file also documents every other field, and ` +
-        `<a href="${escape(asset("add.html"))}">Add a game</a> fills the block in for you.</p>` +
+        `no build step, no restart. The same file also documents every other field.</p>` +
         `<button class="primary-button" id="copyStarter">Copy the block</button>`,
     );
     $("copyStarter").onclick = async () => {
@@ -563,12 +557,6 @@ hero=true`;
       Object.values(plays).reduce((a, b) => a + (Number(b) || 0), 0),
     );
     $("favoriteCount").textContent = String(favorites.length);
-    const drafts = data.games.filter((game) => game.draft).length;
-    const draftCount = $("draftCount");
-    if (draftCount)
-      draftCount.textContent = drafts
-        ? `${drafts} added on this device →`
-        : "0 added on this device →";
     renderCatalogStatus();
     const spotlightCount = $("aboutSpotlightCount");
     if (spotlightCount)
@@ -697,15 +685,6 @@ hero=true`;
       .join("");
     $("detailsPlay").dataset.play = game.id;
     $("detailsDirect").href = asset(game.path);
-    const draftNote = $("detailsDraftNote");
-    if (draftNote) {
-      draftNote.hidden = !game.draft;
-      draftNote.innerHTML = game.draft
-        ? `<strong>Added on this device.</strong> Open <a href="${escape(
-            asset("add.html"),
-          )}">Add a game</a> to copy its catalog block into <code>website/data/games.js</code> — that is what makes it permanent and visible to everyone.`
-        : "";
-    }
     const panel = $("detailsPage");
     panel.hidden = false;
     requestAnimationFrame(() => panel.classList.add("open"));
@@ -828,7 +807,7 @@ hero=true`;
   /* ---------- Spotlight dialog events ---------- */
 
   $("heroEdit").addEventListener("click", () => {
-    spotlightDraft = buildSpotlightDraft();
+    spotlightSelection = buildSpotlightSelection();
     renderSpotlightDialog();
     $("spotlightDialog").showModal();
   });
@@ -841,7 +820,7 @@ hero=true`;
     const toggle = e.target.closest("[data-spot-toggle]");
     if (toggle) {
       const index = Number(toggle.dataset.spotToggle);
-      spotlightDraft[index].on = toggle.checked;
+      spotlightSelection[index].on = toggle.checked;
       toggle.closest(".spot-row").classList.toggle("is-on", toggle.checked);
       syncSpotlightCount();
       return;

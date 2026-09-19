@@ -17,8 +17,7 @@
  *      !! backtick, or a stray backtick inside a description, is a JavaScript
  *      !! error: the whole library disappears from the site. Every page then
  *      !! shows a "Catalog check" notice pointing back here, so nothing fails
- *      !! silently. The Add a game page (website/add.html) builds the block
- *      !! for you if you would rather not type it.
+ *      !! silently. See README.md for a starter block and the full field list.
  *
  * ── THE SPOTLIGHT (the carousel at the top of the home page) ─────────────
  *   hero=true      put this game in the top carousel that cycles on the
