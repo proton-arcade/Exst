@@ -10,9 +10,31 @@
  * <script src> attribute, so the same catalog works no matter which page
  * is being rendered. Set window.EXST_SITE_ROOT = "" or "some/prefix/"
  * before this script loads to override the detection.
+ *
+ * Editing safety net: because the catalog files are hand-edited, loading
+ * them is *self-diagnosing*. A broken entry never fails silently:
+ *
+ *   - games.js that cannot run (missing file, syntax error, an entry pasted
+ *     after the closing backtick) throws a described error, and every page
+ *     shows it, instead of rendering an empty arcade.
+ *   - recoverable mistakes (a block pasted without its [game] header, a
+ *     duplicate id, an entry with no id, a folder pointing at an unknown
+ *     id, a path that is not .html) are collected into `problems` and shown
+ *     to the user by the page that renders the library.
  */
 (function () {
   const LOADER_MARK = "assets/js/config-loader.js";
+
+  /** Catalog files, as named in this file's own diagnostics. */
+  const CATALOG_FILES = {
+    games: "website/data/games.js",
+    folders: "website/data/folders.js",
+  };
+
+  const LIST_KEYS = ["tags", "games", "aliases"];
+
+  /** Problems listed in the on-page notice before it links to the console. */
+  const NOTICE_LIMIT = 6;
 
   function detectSiteRoot() {
     if (typeof window.EXST_SITE_ROOT === "string") {
@@ -68,36 +90,136 @@
     return trimmed;
   }
 
+  /* ---------------------------------------------------------------- reports */
+
+  /**
+   * One recoverable catalog mistake.
+   * { file, line, message, hint }  — line is 0 when the whole file is at fault.
+   */
+  function problem(file, line, message, hint) {
+    return { file, line: Number(line) || 0, message, hint: hint || "" };
+  }
+
+  /** Fatal catalog failure: the library cannot be shown at all. */
+  function catalogError(file, message, hint) {
+    const error = new Error(`${file} could not be read: ${message}`);
+    error.name = "CatalogError";
+    error.hint = hint || "";
+    return error;
+  }
+
+  /** Console report so editors can see the same problems outside the page. */
+  function report(problems) {
+    try {
+      if (typeof console === "undefined" || !console.warn) return;
+      problems.forEach((item) =>
+        console.warn(
+          `[Exst Arcade] ${item.file}${item.line ? `:${item.line}` : ""} — ${item.message}${
+            item.hint ? ` ${item.hint}` : ""
+          }`,
+        ),
+      );
+    } catch (_) {
+      /* Console is optional. */
+    }
+  }
+
+  /**
+   * Ready-made markup for the "Catalog check" notice pages show after a bad
+   * edit. Returns "" when there is nothing to report.
+   */
+  function catalogNoticeHtml(problems) {
+    if (!problems || !problems.length) return "";
+    const files = [...new Set(problems.map((item) => item.file))];
+    // One bad edit can report many follow-on problems (a collection that
+    // lists ids an unreadable file no longer defines), so keep the notice
+    // scannable and leave the full list to the console.
+    const shown = problems.slice(0, NOTICE_LIMIT);
+    const hidden = problems.length - shown.length;
+    const items =
+      shown
+        .map(
+          (item) =>
+            `<li>${
+              item.line ? `<code>line ${item.line}</code> ` : ""
+            }${escapeHtml(item.message)}${
+              item.hint
+                ? ` <span class="notice-hint">${escapeHtml(item.hint)}</span>`
+                : ""
+            }</li>`,
+        )
+        .join("") +
+      (hidden
+        ? `<li class="notice-more">…and ${hidden} more (the browser console lists every one).</li>`
+        : "");
+    return (
+      `<section class="catalog-notice" role="status" aria-live="polite">` +
+      `<div class="notice-head"><span class="notice-chip">CATALOG CHECK</span>` +
+      `<button type="button" class="notice-close" data-dismiss-notice aria-label="Hide catalog check">×</button></div>` +
+      `<p class="notice-lead">Your library loaded, but <strong>${problems.length} thing${
+        problems.length === 1 ? "" : "s"
+      }</strong> in <code>${escapeHtml(files.join(", "))}</code> need${
+        problems.length === 1 ? "s" : ""
+      } a look — a game you added may not be showing up because of ${
+        problems.length === 1 ? "it" : "them"
+      }.</p>` +
+      `<ul>${items}</ul>` +
+      `<p class="notice-hint">Every entry must sit <strong>inside</strong> the backtick-quoted text and start with its own <code>[game]</code> (or <code>[folder]</code>) line. Walkthrough: README → “Add a game”.</p>` +
+      `</section>`
+    );
+  }
+
+  /* ----------------------------------------------------------------- parser */
+
   /**
    * Parse `[type]` blocks of `key=value` lines.
    * Supports # comments, quoted values, booleans, and comma lists for
    * the tags / games / aliases keys.
+   *
+   * Each item carries the `line` it started on (1-based) so mistakes can be
+   * reported with a location. A key that repeats inside one block means
+   * another entry was pasted without its `[type]` header: start a new block
+   * instead of quietly overwriting the previous entry.
    */
-  function parseBlockText(text, defaultType = "game") {
+  function parseText(text, defaultType, file, problems) {
     const items = [];
     let current = null;
     String(text == null ? "" : text)
       .split(/\r?\n/)
-      .forEach((raw) => {
+      .forEach((raw, index) => {
+        const lineNumber = index + 1;
         const line = stripComments(raw).trim();
         if (!line) return;
         const header = line.match(/^\[([a-z0-9_-]+)\]$/i);
         if (header) {
           if (current) items.push(current);
-          current = { type: header[1].toLowerCase() };
+          current = { type: header[1].toLowerCase(), line: lineNumber };
           return;
         }
-        if (!current) current = { type: defaultType };
         const splitAt = line.indexOf("=");
         if (splitAt === -1) return;
         const key = line.slice(0, splitAt).trim();
         const value = cleanValue(line.slice(splitAt + 1));
-        if (["tags", "games", "aliases"].includes(key)) {
+        if (!current) current = { type: defaultType, line: lineNumber };
+        if (Object.prototype.hasOwnProperty.call(current, key) && problems) {
+          problems.push(
+            problem(
+              file,
+              lineNumber,
+              `“${key}=” appears again without a new [${defaultType}] line, so this was read as the start of another entry.`,
+              `Put [${defaultType}] on its own line above it, so it is not merged into the entry before it.`,
+            ),
+          );
+          items.push(current);
+          current = { type: defaultType, line: lineNumber };
+        }
+        if (LIST_KEYS.includes(key)) {
           current[key] = String(value)
             .split(",")
             .map((part) => part.trim())
             .filter(Boolean);
         } else {
+          if (key === "id") current.idLine = lineNumber;
           current[key] = value;
         }
       });
@@ -105,55 +227,216 @@
     return items;
   }
 
+  /** Public single-file helper (no diagnostics): parse block text. */
+  function parseBlockText(text, defaultType = "game") {
+    return parseText(text, defaultType, "", null);
+  }
+
+  /** Warn about [type] blocks that this file does not read. */
+  function checkBlockTypes(items, expectedType, file, problems) {
+    items
+      .filter((item) => item.type !== expectedType)
+      .forEach((item) =>
+        problems.push(
+          problem(
+            file,
+            item.line,
+            `A [${item.type}] block was skipped: this file only reads [${expectedType}] blocks.`,
+            `Move it to ${
+              item.type === "folder" ? CATALOG_FILES.folders : CATALOG_FILES.games
+            } or rename the block to [${expectedType}].`,
+          ),
+        ),
+      );
+  }
+
+  /* ------------------------------------------------------------- normalizers */
+
   function normalizeGame(game) {
+    const { line, idLine, ...fields } = game;
     return {
-      ...game,
-      id: String(game.id || "").trim(),
-      title: game.title || game.name || game.id || "Untitled game",
-      version: game.version || "",
-      icon: game.icon || "assets/images/default-game.svg",
-      path: game.path || "#",
-      description: game.description || "",
-      tags: Array.isArray(game.tags) ? game.tags : [],
-      featured: game.featured === true || game.featured === "true",
-      bundled: game.bundled === true || game.bundled === "true",
-      wasm: game.wasm === true || game.wasm === "true",
+      ...fields,
+      id: String(fields.id || "").trim(),
+      title: fields.title || fields.name || fields.id || "Untitled game",
+      version: fields.version || "",
+      icon: fields.icon || "assets/images/default-game.svg",
+      path: fields.path || "#",
+      description: fields.description || "",
+      tags: Array.isArray(fields.tags) ? fields.tags : [],
+      featured: fields.featured === true || fields.featured === "true",
+      bundled: fields.bundled === true || fields.bundled === "true",
+      wasm: fields.wasm === true || fields.wasm === "true",
       // Omitting the field means "ready to play".
       available:
-        game.available !== false && game.available !== "false",
+        fields.available !== false && fields.available !== "false",
+      line: Number(line) || 0,
+      idLine: Number(idLine) || Number(line) || 0,
     };
   }
 
   function normalizeFolder(folder) {
+    const { line, idLine, ...fields } = folder;
     return {
-      ...folder,
-      id: String(folder.id || folder.name || "").trim(),
-      title: folder.title || folder.name || folder.id || "Folder",
-      description: folder.description || "",
-      icon: folder.icon || "assets/images/folder.svg",
-      games: Array.isArray(folder.games) ? folder.games : [],
+      ...fields,
+      id: String(fields.id || fields.name || "").trim(),
+      title: fields.title || fields.name || fields.id || "Folder",
+      description: fields.description || "",
+      icon: fields.icon || "assets/images/folder.svg",
+      games: Array.isArray(fields.games) ? fields.games : [],
+      line: Number(line) || 0,
     };
   }
 
-  function loadGames() {
-    return parseBlockText(window.EXST_GAMES_TEXT, "game")
+  function loadGames(problems) {
+    const file = CATALOG_FILES.games;
+    const text = window.EXST_GAMES_TEXT;
+    if (typeof text !== "string" || !text.trim()) {
+      throw catalogError(
+        file,
+        "the file did not load, so there are no games to show",
+        "That is almost always a JavaScript syntax error: an entry pasted after the closing backtick, a backtick inside a description, or the file being renamed/moved. Every entry must sit inside the backtick-quoted text and start with its own [game] line — see README → “Add a game”.",
+      );
+    }
+    const items = parseText(text, "game", file, problems);
+    checkBlockTypes(items, "game", file, problems);
+    const games = [];
+    const firstSeen = new Map(); // id -> line number
+    items
       .filter((item) => item.type === "game")
-      .map(normalizeGame)
-      .filter((game) => game.id);
+      .forEach((item) => {
+        const game = normalizeGame(item);
+        if (!game.id) {
+          problems.push(
+            problem(
+              file,
+              game.line,
+              `An entry (“${game.title}”) has no id= line, so it was skipped.`,
+              "Every entry needs a unique id — that is how folders, links, and favorites find it.",
+            ),
+          );
+          return;
+        }
+        if (firstSeen.has(game.id)) {
+          problems.push(
+            problem(
+              file,
+              game.idLine,
+              `id=${game.id} is already used on line ${firstSeen.get(game.id)}, so this duplicate was skipped.`,
+              "Two entries cannot share an id — give one of them a new id, or delete the copy.",
+            ),
+          );
+          return;
+        }
+        firstSeen.set(game.id, game.idLine);
+        if (!game.path || game.path === "#") {
+          problems.push(
+            problem(
+              file,
+              game.line,
+              `“${game.title}” has no path= line, so it cannot launch.`,
+              "Add path=games/your-game.html, relative to the website/ folder.",
+            ),
+          );
+        } else if (
+          !/^https?:\/\//i.test(game.path) &&
+          !/\.html?([?#].*)?$/i.test(game.path)
+        ) {
+          problems.push(
+            problem(
+              file,
+              game.line,
+              `“${game.title}” points at ${game.path}, which is not an .html/.htm file.`,
+              "Point path= straight at the game's .html file (or a full https:// URL).",
+            ),
+          );
+        }
+        games.push(game);
+      });
+    if (!games.length) {
+      throw catalogError(
+        file,
+        "no [game] entries were found",
+        "Each entry needs a [game] line followed by id=, title= and path= lines. See README → “Add a game”.",
+      );
+    }
+    return games;
   }
 
-  function loadFolders() {
-    return parseBlockText(window.EXST_FOLDERS_TEXT, "folder")
+  function loadFolders(problems, byId) {
+    const file = CATALOG_FILES.folders;
+    const text = window.EXST_FOLDERS_TEXT;
+    if (typeof text !== "string" || !text.trim()) {
+      problems.push(
+        problem(
+          file,
+          0,
+          "The file did not load, so collections are empty.",
+          "It is either missing or has a JavaScript syntax error (often text pasted after the closing backtick). The game library still works without it.",
+        ),
+      );
+      return [];
+    }
+    const items = parseText(text, "folder", file, problems);
+    checkBlockTypes(items, "folder", file, problems);
+    const folders = [];
+    const firstSeen = new Map();
+    items
       .filter((item) => item.type === "folder")
-      .map(normalizeFolder)
-      .filter((folder) => folder.id);
+      .forEach((item) => {
+        const folder = normalizeFolder(item);
+        if (!folder.id) {
+          problems.push(
+            problem(
+              file,
+              folder.line,
+              `A collection (“${folder.title}”) has no id= line, so it was skipped.`,
+              "Give it an id so folder.html?id=… can find it.",
+            ),
+          );
+          return;
+        }
+        if (firstSeen.has(folder.id)) {
+          problems.push(
+            problem(
+              file,
+              folder.line,
+              `id=${folder.id} is already used on line ${firstSeen.get(folder.id)}, so this duplicate collection was skipped.`,
+              "Two collections cannot share an id.",
+            ),
+          );
+          return;
+        }
+        firstSeen.set(folder.id, folder.line);
+        folder.games
+          .filter((id) => !byId.has(id))
+          .forEach((id) =>
+            problems.push(
+              problem(
+                file,
+                folder.line,
+                `Collection “${folder.title}” lists id=${id}, which is not in ${CATALOG_FILES.games} — it was left out.`,
+                "Check the id's spelling, or add that [game] entry.",
+              ),
+            ),
+          );
+        folders.push(folder);
+      });
+    return folders;
   }
 
   async function loadArcadeData() {
-    const games = loadGames();
-    const folders = loadFolders();
+    const problems = [];
+    const games = loadGames(problems);
     const byId = new Map(games.map((game) => [game.id, game]));
-    return { games, folders, byId };
+    const folders = loadFolders(problems, byId);
+    report(problems);
+    // Also reachable as window.EXST_CATALOG_PROBLEMS for debugging.
+    try {
+      window.EXST_CATALOG_PROBLEMS = problems;
+    } catch (_) {
+      /* Ignore read-only windows. */
+    }
+    return { games, folders, byId, problems };
   }
 
   function gameUrl(game, mode = "page", from = "") {
@@ -261,16 +544,29 @@
     );
   }
 
+  /**
+   * Notice dismissal is delegated once, so any page can drop
+   * catalogNoticeHtml() markup into the document and it just works.
+   */
+  if (typeof document !== "undefined" && document.addEventListener) {
+    document.addEventListener("click", (event) => {
+      const close = event.target.closest("[data-dismiss-notice]");
+      if (close) close.closest(".catalog-notice")?.remove();
+    });
+  }
+
   window.ExstArcade = {
     loadArcadeData,
     parseBlockText,
     bindOpenModeSelect,
     createGameCard,
+    catalogNoticeHtml,
     gameUrl,
     homeUrl,
     getOpenMode,
     escapeHtml,
     assetUrl,
+    catalogFiles: CATALOG_FILES,
     siteRoot: () => SITE_ROOT,
   };
 })();

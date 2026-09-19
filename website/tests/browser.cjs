@@ -263,6 +263,69 @@ async function launch() {
       "✓ Configured collections, folder launch modes, missing-game fallbacks",
     );
 
+    // A catalog edit is never silent: a clean library shows no notice...
+    await goto("/");
+    await expect(page.locator(".catalog-notice")).toHaveCount(0);
+
+    // ...a recoverable mistake is listed with file + line and can be closed...
+    await page.route("**/website/data/games.js", (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body:
+          "window.EXST_GAMES_TEXT = `\n[game]\nid=alpha\ntitle=Alpha\npath=games/arcade.html?game=neon-snake\n\n[game]\nid=alpha\ntitle=Alpha copy\npath=games/arcade.html?game=2048\n`;",
+      }),
+    );
+    await page.route("**/website/data/folders.js", (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body:
+          "window.EXST_FOLDERS_TEXT = `\n[folder]\nid=one\ntitle=One\ngames=alpha\n`;",
+      }),
+    );
+    await goto("/");
+    await expect(page.locator(".catalog-notice")).toBeVisible();
+    await expect(page.locator(".catalog-notice")).toContainText("CATALOG CHECK");
+    await expect(page.locator(".catalog-notice")).toContainText(
+      "id=alpha is already used on line 3",
+    );
+    await expect(page.locator(".catalog-notice li").first()).toContainText(
+      "line 8",
+    );
+    await page.locator("[data-dismiss-notice]").click();
+    await expect(page.locator(".catalog-notice")).toHaveCount(0);
+    await page.unroute("**/website/data/games.js");
+    await page.unroute("**/website/data/folders.js");
+
+    // ...and an unreadable catalog file is explained instead of leaving the
+    // page stuck on "Loading…" with an empty arcade.
+    const errorsBeforeBrokenCatalog = errors.length;
+    await page.route("**/website/data/games.js", (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body:
+          // The classic mis-paste: a block after the closing backtick, which
+          // makes the whole catalog file a syntax error.
+          "window.EXST_GAMES_TEXT = `\n[game]\nid=only-game\n`;\n\n[game]\nid=oops\ntitle=My Game\n",
+      }),
+    );
+    await goto("/");
+    await expect(page.locator("#heroTitle")).toHaveText(
+      "The game library could not be read",
+    );
+    await expect(page.locator(".hero-notice")).toContainText("closing backtick");
+    await expect(page.locator(".hero-notice")).toContainText(
+      "website/data/games.js could not be read",
+    );
+    // The Play button cannot launch anything, so it is not offered.
+    await expect(page.locator(".hero-content .options")).toBeHidden();
+    await page.unroute("**/website/data/games.js");
+    await goto("/");
+    await expect(page.locator("#row-originals .movie")).toHaveCount(6);
+    errors.length = errorsBeforeBrokenCatalog; // the broken file is the point of the test
+    console.log(
+      "\u2713 Catalog edits: broken files and duplicate ids are explained on screen",
+    );
+
     // No-server proof: open the site straight from the filesystem.
     const filePage = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
@@ -285,6 +348,9 @@ async function launch() {
     await filePage.waitForURL(/index\.html/);
     await expect(filePage.locator("#row-originals .movie")).toHaveCount(6);
     await filePage.locator('#footerBar [ref="about"]').click();
+    await expect(filePage.locator("#catalogStatus")).toContainText(
+      "16 games and 4 collections read from website/data/games.js",
+    );
     await filePage
       .locator('.folder-links>a[href="website/folder.html?id=arcade"]')
       .click();
@@ -296,6 +362,54 @@ async function launch() {
     console.log(
       "✓ No-server file:// run: dashboard, player and folder all work",
     );
+
+    // The claim this whole suite exists to protect: edit the catalog on disk,
+    // reload, and the new game is there — even over file:// with no server.
+    const editDir = fs.mkdtempSync(path.join(os.tmpdir(), "exst-catalg-edit-"));
+    try {
+      const skipDirs = new Set(["node_modules", ".git", ".test-artifacts"]);
+      fs.cpSync(root, editDir, {
+        recursive: true,
+        filter: (src) =>
+          !path.relative(root, src).split(path.sep).some((p) => skipDirs.has(p)),
+      });
+      const gamesFile = path.join(editDir, "website/data/games.js");
+      fs.writeFileSync(
+        gamesFile,
+        fs
+          .readFileSync(gamesFile, "utf8")
+          .replace(
+            /(\n`;)\s*$/,
+            "\n[game]\nid=my-test-game\ntitle=My Test Game\nversion=Just added\nicon=assets/images/default-game.svg\npath=games/my-test-game.html\ndescription=Added during the catalog-edit test.\ntags=Arcade\n$1",
+          ),
+      );
+      // Its own browser: this check opens and closes a page after the main
+      // page has been through the whole suite.
+      const editBrowser = await launch();
+      const editPage = await editBrowser.newPage({
+        viewport: { width: 1440, height: 1000 },
+      });
+      await editPage.goto("file://" + path.join(editDir, "index.html"));
+      await expect(editPage.locator("#row-all .movie")).toHaveCount(17);
+      await expect(
+        editPage.locator("#row-all .item-label", { hasText: "My Test Game" }),
+      ).toHaveCount(1);
+      await expect(editPage.locator(".catalog-notice")).toHaveCount(0);
+      await editPage.locator('#footerBar [ref="about"]').click();
+      await expect(editPage.locator("#catalogStatus")).toContainText(
+        "17 games and 4 collections read from website/data/games.js",
+      );
+      await expect(
+        editPage.locator('.folder-links > a[href*="folder.html?id=arcade"]'),
+      ).toContainText("7 games");
+      await editPage.close();
+      await editBrowser.close();
+      console.log(
+        "\u2713 Catalog edits: a new [game] block appears after a reload, over file://",
+      );
+    } finally {
+      fs.rmSync(editDir, { recursive: true, force: true });
+    }
 
     assert.deepEqual(errors, [], "Browser JavaScript errors");
     assert.deepEqual(broken, [], "Broken local resources");

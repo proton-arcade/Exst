@@ -66,16 +66,55 @@ async function resolveGame() {
     };
   }
   const arcade = await ExstArcade.loadArcadeData();
+  lastProblems = arcade.problems || [];
   const game = arcade.byId.get(gameId);
-  if (!game)
+  if (!game) {
+    // Say *why* the entry is missing when the catalog reported problems,
+    // otherwise "my game doesn't show up" is a dead end.
+    const problems = arcade.problems || [];
+    const detail = problems.length
+      ? ` ${ExstArcade.catalogFiles.games} reported ${
+          problems.length
+        } problem${problems.length === 1 ? "" : "s"}: ${problems
+          .slice(0, 3)
+          .map((item) => `${item.line ? `line ${item.line}: ` : ""}${item.message}`)
+          .join(" ")}`
+      : "";
     throw new Error(
-      `No game with ID "${gameId}" exists in website/data/games.js.`,
+      `No game with ID "${gameId}" exists in ${ExstArcade.catalogFiles.games}.${detail}`,
     );
+  }
   return game;
+}
+
+/** Problems from the last catalog read, for the error panel below. */
+let lastProblems = [];
+
+/**
+ * Only the problems that concern the game being opened are shown in the
+ * player, so an unrelated broken entry does not interrupt play.
+ */
+function problemsForGame(game, problems) {
+  if (!game || !problems || !problems.length) return [];
+  return problems.filter(
+    (item) =>
+      item.line === game.line ||
+      item.line === game.idLine ||
+      item.message.includes(game.id) ||
+      item.message.includes(game.path),
+  );
+}
+
+function showCatalogNotice(game, problems) {
+  const mine = problemsForGame(game, problems);
+  const host = document.getElementById("gameNotice");
+  if (host && mine.length)
+    host.innerHTML = ExstArcade.catalogNoticeHtml(mine);
 }
 
 async function bootGame() {
   const game = await resolveGame();
+  showCatalogNotice(game, lastProblems);
 
   const target = ExstArcade.assetUrl(game.path);
   document.title = `${game.title} — Exst Arcade`;
@@ -114,10 +153,33 @@ async function bootGame() {
     document.getElementById("missingPath").textContent = ExstArcade.assetUrl(
       game.path,
     );
+    // When the catalog itself flagged this entry (no path=, wrong extension),
+    // say so here instead of only offering the generic "needs its files" copy.
+    const mine = problemsForGame(game, lastProblems);
+    if (mine.length)
+      fallback.insertAdjacentHTML(
+        "beforeend",
+        `<p class="fallback-problem">${mine
+          .map(
+            (item) =>
+              `${item.line ? `Line ${item.line} of ${ExstArcade.escapeHtml(
+                item.file,
+              )}: ` : ""}${ExstArcade.escapeHtml(item.message)}${
+                item.hint ? ` ${ExstArcade.escapeHtml(item.hint)}` : ""
+              }`,
+          )
+          .join(" ")}</p>`,
+      );
   }
 }
 
 bootGame().catch((error) => {
   document.querySelector(".game-shell").innerHTML =
-    `<section class="frame-fallback"><h1>Game could not load</h1><p>${ExstArcade.escapeHtml(error.message)}</p><a class="play-link" href="${ExstArcade.escapeHtml(ExstArcade.homeUrl())}">Back to arcade</a></section>`;
+    `<section class="frame-fallback"><h1>${
+      error.name === "CatalogError"
+        ? "The game library could not be read"
+        : "Game could not load"
+    }</h1><p>${ExstArcade.escapeHtml(error.message)}</p>${
+      error.hint ? `<p>${ExstArcade.escapeHtml(error.hint)}</p>` : ""
+    }<a class="play-link" href="${ExstArcade.escapeHtml(ExstArcade.homeUrl())}">Back to arcade</a></section>`;
 });

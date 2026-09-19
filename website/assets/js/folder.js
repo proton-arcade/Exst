@@ -17,6 +17,11 @@ async function bootFolder() {
     folder.description || "A handpicked collection from your arcade.";
   const games = folder.games.map((id) => arcade.byId.get(id)).filter(Boolean);
   document.getElementById("folderCount").textContent = `${games.length} games`;
+  // Collections are built from the game catalog, so a catalog problem can
+  // explain why a game is missing from this page.
+  const notice = document.getElementById("folderNotice");
+  if (notice)
+    notice.innerHTML = ExstArcade.catalogNoticeHtml(arcade.problems);
   const grid = document.getElementById("folderGameGrid");
   function renderFolderGames() {
     grid.innerHTML = "";
@@ -60,5 +65,7 @@ async function bootFolder() {
 
 bootFolder().catch((error) => {
   document.getElementById("folderTitle").textContent = "Collection unavailable";
-  document.getElementById("folderDescription").textContent = error.message;
+  document.getElementById("folderDescription").textContent = error.hint
+    ? `${error.message} ${error.hint}`
+    : error.message;
 });

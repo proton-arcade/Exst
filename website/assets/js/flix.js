@@ -302,6 +302,7 @@
       Object.values(plays).reduce((a, b) => a + (Number(b) || 0), 0),
     );
     $("favoriteCount").textContent = String(favorites.length);
+    renderCatalogStatus();
     $("aboutFolders").innerHTML = data.folders
       .map(
         (folder) =>
@@ -318,6 +319,76 @@
     renderAbout();
     syncHero();
     if (window.renderIcons) window.renderIcons(document);
+  }
+
+  /* ---------- Catalog edit feedback ---------- */
+
+  /**
+   * Every edit to website/data/games.js or folders.js is either read
+   * correctly or reported here — a half-saved entry never disappears
+   * without a word.
+   */
+  function renderCatalogNotice(problems) {
+    const host = $("catalogNotice");
+    if (!host) return;
+    host.innerHTML = ExstArcade.catalogNoticeHtml(problems);
+  }
+
+  /**
+   * A catalog edit that stops the library from loading is reported in the
+   * hero, where the user is already looking — never as an empty arcade or a
+   * page stuck on "Loading…".
+   */
+  function showCatalogFailure(error) {
+    const hint =
+      error.hint ||
+      "Make sure website/data/games.js and website/data/folders.js are present, then try again.";
+    const catalogError = error.name === "CatalogError";
+    document.body.classList.add("catalog-broken");
+    $("heroKicker").textContent = "CATALOG ERROR";
+    $("heroTitle").textContent = catalogError
+      ? "The game library could not be read"
+      : "The arcade couldn’t load";
+    $("heroOverview").textContent =
+      "Fix the catalog file described below, save it, then reload this page.";
+    $("heroMeta").innerHTML = "";
+    $("heroCategories").textContent = "";
+    $("heroDots").innerHTML = "";
+    const options = document.querySelector(".hero-content .options");
+    if (options) options.hidden = true;
+    $("rows").innerHTML = "";
+    const notice = document.createElement("section");
+    notice.className = "catalog-notice hero-notice";
+    notice.setAttribute("role", "alert");
+    notice.innerHTML =
+      `<div class="notice-head"><span class="notice-chip">CATALOG ERROR</span></div>` +
+      `<p class="notice-lead">${escape(error.message)}</p>` +
+      `<p class="notice-hint">${escape(hint)}</p>` +
+      `<p class="notice-hint">Nothing is lost: fix the file and reload — every other page of the arcade is unaffected.</p>` +
+      `<button class="primary-button" id="retryLoad">Reload the page</button>`;
+    document.querySelector(".hero-content").appendChild(notice);
+    $("retryLoad").addEventListener("click", () => location.reload());
+  }
+
+  function renderCatalogStatus() {
+    const host = $("catalogStatus");
+    if (!host) return;
+    const files = ExstArcade.catalogFiles;
+    const problems = (data && data.problems) || [];
+    host.innerHTML =
+      `<strong>Catalog:</strong> ${data.games.length} game${
+        data.games.length === 1 ? "" : "s"
+      } and ${data.folders.length} collection${
+        data.folders.length === 1 ? "" : "s"
+      } read from <code>${escape(files.games)}</code> and <code>${escape(
+        files.folders,
+      )}</code> when this page loaded.${
+        problems.length
+          ? ` <strong>${problems.length} problem${
+              problems.length === 1 ? "" : "s"
+            } found</strong> — open the Catalog check notice on Home.`
+          : " Your edits show up here as soon as the page is refreshed."
+      }`;
   }
 
   /* ---------- Details slide-in ---------- */
@@ -530,14 +601,11 @@
       if (!heroSlides.length) heroSlides = data.games.slice(0, 6);
       renderHero();
       renderAll();
+      renderCatalogNotice(result.problems);
       ExstArcade.bindOpenModeSelect();
       routeFromHash();
       syncHeader();
       restartHeroTimer();
     })
-    .catch((error) => {
-      $("rows").innerHTML =
-        `<div class="empty-state"><h3>The arcade couldn’t load</h3><p>${escape(error.message)}. Make sure <code>website/data/games.js</code> and <code>website/data/folders.js</code> are present, then try again.</p><button class="primary-button" id="retryLoad">Try again</button></div>`;
-      $("retryLoad").addEventListener("click", () => location.reload());
-    });
+    .catch(showCatalogFailure);
 })();

@@ -2,9 +2,15 @@
  * Exst Arcade — collections ("folders"). Works with or without a web server.
  *
  * ADD A FOLDER (1 step):
- *   Paste a [folder] block below. games = comma-separated game IDs copied
- *   from the id= lines in data/games.js. That's all — the folder appears
- *   in the sidebar's Collections dialog and at folder.html?id=its-id.
+ *   Paste a [folder] block below, inside the backtick-quoted text.
+ *   games = comma-separated game IDs copied from the id= lines in
+ *   data/games.js. That's all — the folder appears in the sidebar's
+ *   Collections dialog and at folder.html?id=its-id.
+ *
+ *   Each block needs its own [folder] line, and it must sit before the
+ *   closing backtick at the end of this file (text after that backtick is
+ *   a JavaScript error). An ID that does not exist in games.js is skipped
+ *   and listed in the Catalog check notice on the home page.
  *
  * Lines starting with # are comments.
  */

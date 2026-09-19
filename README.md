@@ -72,6 +72,30 @@ That's all. Refresh `index.html` and the game is in the grid, in the player
 (`website/game.html?id=retro-pong`), in search, and in any collection that
 lists it. No restart, no build.
 
+### If your edit doesn't show up
+
+The catalog is read fresh every time the page loads, and **every edit is
+checked** — a half-saved entry never disappears silently:
+
+- **Nothing moved at all?** Refresh the page (the browser may still be
+  showing the old copy), then check **About → Catalog** on the home page. It
+  states exactly how many games and collections the page just read, so you
+  can tell your edit was picked up.
+- **"Catalog check" notice on Home** — the library loaded, but something in
+  it needs attention. The notice names the file, the line, and what to do;
+  the browser console lists the same problems. Usual causes: an entry pasted
+  without its own `[game]` line, a reused `id`, or a collection that lists an
+  id which isn't in `games.js`.
+- **"The game library could not be read"** — `games.js` didn't load at all.
+  Almost always a JavaScript error, and the message says which: an entry
+  pasted **after** the closing backtick at the end of the file, a stray
+  backtick inside a description, or the file being renamed/moved. Every entry
+  must sit **inside** the backtick-quoted text and begin with its own
+  `[game]` line.
+- **A game shows "Setup needed"** — its entry still has `available=false`.
+  Put the game file at the entry's `path` (or point `path` at the file you
+  already have) and delete the `available=false` line.
+
 To try a game without listing it, open
 `website/game.html?path=games/your-game.html` — any game file can be played
 directly.
@@ -120,6 +144,10 @@ own poster row on the home page, under **About → Collections**, and at
 - Accessible labels, keyboard focus styles, skip navigation, reduced-motion
   support, and native dialogs.
 - Clear "setup needed" states for placeholder game entries.
+- Self-checking catalog: every load reports what it read (About → Catalog),
+  and a bad edit — an entry pasted outside the backticks, a block missing its
+  `[game]` line, a duplicate id, a collection pointing at an unknown id — is
+  described on screen with file and line instead of silently vanishing.
 
 ## Six playable originals
 
@@ -159,12 +187,17 @@ npm run test:browser            # Playwright: dashboard, player, all six games,
 ```
 
 The Node tests validate catalog parsing, unique IDs, file existence, folder
-references, URL building, and escaping. The browser suite covers search,
-categories, sorting, persistent favorites, launch preferences, setup dialogs,
-2048 scoring, every original game's start/pause/restart, a complete Memory
-Match win, mobile navigation, horizontal overflow at four widths, and opening
-the whole site over `file://` with no server. Screenshots are written to the
-ignored `.test-artifacts/` directory.
+references, URL building, escaping, and the catalog safety net: a block
+pasted without its `[game]` header becomes its own entry, duplicate ids and
+unknown folder references are reported with file and line, and an unreadable
+`games.js` throws an explained error instead of rendering an empty arcade.
+The browser suite covers search, categories, sorting, persistent favorites,
+launch preferences, setup dialogs, 2048 scoring, every original game's
+start/pause/restart, a complete Memory Match win, the on-screen Catalog check
+notice (and its dismiss button), the "game library could not be read" panel,
+mobile navigation, horizontal overflow at four widths, and opening the whole
+site over `file://` with no server. Screenshots are written to the ignored
+`.test-artifacts/` directory.
 
 ## Attribution
 

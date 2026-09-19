@@ -258,6 +258,12 @@ body.flix .icon {
   text-shadow: 1px 1px 0 #000;
 }
 
+/* display:flex would otherwise beat the [hidden] attribute. */
+.hero-content .options[hidden],
+.hero-content .options [hidden] {
+  display: none;
+}
+
 .hero-content .options {
   padding: 8px;
   display: flex;
@@ -584,6 +590,125 @@ body.flix .icon {
 }
 
 .empty-state .primary-button {
+  background: var(--flix-red);
+  color: #fff !important;
+  border: 0;
+  border-radius: 4px;
+  padding: 10px 22px;
+  font-family: inherit;
+  font-size: 100%;
+  font-weight: 700;
+}
+
+/* Catalog check: shown when an edit to data/games.js or data/folders.js
+   needs attention, so a half-saved entry is never silent. */
+
+.catalog-notice {
+  background: #241a19;
+  border: 1px solid rgba(221, 53, 50, 0.55);
+  border-left: 4px solid var(--flix-red);
+  border-radius: 6px;
+  margin: 18px 4%;
+  padding: 16px 18px;
+  user-select: text;
+}
+
+.catalog-notice .notice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.catalog-notice .notice-chip {
+  background: var(--flix-red);
+  color: #fff;
+  border-radius: 3px;
+  font-size: 75%;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 4px 9px;
+}
+
+.catalog-notice .notice-close {
+  background: transparent;
+  border: 0;
+  color: var(--flix-muted);
+  font-size: 130%;
+  line-height: 1;
+  padding: 2px 6px;
+}
+
+.catalog-notice .notice-close:hover {
+  color: #fff;
+}
+
+.catalog-notice p {
+  margin: 12px 0 8px;
+  color: #eee;
+  line-height: 155%;
+}
+
+.catalog-notice ul {
+  margin: 0 0 4px;
+  padding-left: 20px;
+}
+
+.catalog-notice li {
+  margin-bottom: 10px;
+  color: #ddd;
+  line-height: 150%;
+}
+
+.catalog-notice code,
+.catalog-status code {
+  background: #000;
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: #ffcf2f;
+  overflow-wrap: anywhere;
+}
+
+.catalog-notice .notice-lead {
+  color: #fff;
+}
+
+.catalog-notice .notice-hint,
+.catalog-status {
+  color: var(--flix-muted);
+  font-size: 88%;
+}
+
+.catalog-notice + #rows {
+  padding-top: 4px;
+}
+
+/* A catalog edit that stops the library from loading: the explanation takes
+   over the hero, so it is visible without scrolling. */
+
+body.catalog-broken .hero-content {
+  justify-content: center;
+}
+
+body.catalog-broken .hero-shade {
+  opacity: 0.55;
+}
+
+.hero-notice {
+  width: min(760px, 92vw);
+  margin: 18px auto 0;
+  text-align: left;
+}
+
+.hero-notice .notice-head {
+  justify-content: flex-start;
+}
+
+.hero-notice .notice-lead {
+  color: #fff;
+}
+
+.hero-notice .primary-button {
   background: var(--flix-red);
   color: #fff !important;
   border: 0;
