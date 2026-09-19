@@ -1,0 +1,17 @@
+{
+  "name": "exst-arcade",
+  "version": "2.0.0",
+  "private": true,
+  "description": "A Hybrid Bootstrap game dashboard with six playable arcade originals.",
+  "scripts": {
+    "start": "python3 -m http.server 3000 --bind 0.0.0.0",
+    "test": "node --test tests/catalog.test.cjs",
+    "test:browser": "node tests/browser.cjs"
+  },
+  "devDependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "@playwright/test": "^1.55.0",
+    "@sparticuz/chromium": "^153.0.0"
+  }
+}
