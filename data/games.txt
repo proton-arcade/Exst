@@ -1,8 +1,89 @@
+# Playable Exst originals. Add more games with the same block format.
+
+[game]
+id=neon-drift
+title=Neon Drift
+version=Arcade original
+icon=assets/images/neon-drift.webp
+path=games/arcade.html?game=neon-drift
+description=Own the night. Chase the rush.
+tags=Racing, Arcade
+featured=true
+original=true
+available=true
+badge=HOT
+
+[game]
+id=neon-snake
+title=Neon Snake
+version=Arcade original
+icon=assets/images/neon-snake.webp
+path=games/arcade.html?game=neon-snake
+description=A fresh glow on an all-time classic.
+tags=Arcade, Action
+featured=true
+original=true
+available=true
+badge=POPULAR
+
+[game]
+id=2048
+title=2048
+version=Arcade original
+icon=assets/images/2048.webp
+path=games/arcade.html?game=2048
+description=Easy to learn. Impossible to put down.
+tags=Puzzle, Arcade
+featured=true
+original=true
+available=true
+badge=
+
+[game]
+id=cosmic-escape
+title=Cosmic Escape
+version=Arcade original
+icon=assets/images/cosmic-escape.webp
+path=games/arcade.html?game=cosmic-escape
+description=Small ship. One very big universe.
+tags=Action, Adventure
+featured=true
+original=true
+available=true
+badge=NEW
+
+[game]
+id=memory-match
+title=Memory Match
+version=Arcade original
+icon=assets/images/memory-match.webp
+path=games/arcade.html?game=memory-match
+description=Find your match. Train your brain.
+tags=Puzzle, Arcade
+featured=true
+original=true
+available=true
+badge=
+
+[game]
+id=brick-breaker
+title=Brick Breaker
+version=Arcade original
+icon=assets/images/brick-breaker.webp
+path=games/arcade.html?game=brick-breaker
+description=Break the bricks. Beat your best.
+tags=Arcade, Action
+featured=true
+original=true
+available=true
+badge=NEW
+
 # Exst Arcade games list
 # Copy a whole [game] block, paste it below, then change the values.
 # Required: id, title, path. Recommended: icon, description, tags.
 
 [game]
+available=false
 id=fnaf
 title=Five Nights at Freddy's
 version=HTML build
@@ -14,6 +95,7 @@ featured=true
 source=fnaf.html
 
 [game]
+available=false
 id=backrooms
 title=Backrooms
 version=HTML build
@@ -25,6 +107,7 @@ featured=true
 source=backrooms.html
 
 [game]
+available=false
 id=paper-io-2
 title=Paper.io 2
 version=HTML build
@@ -36,6 +119,7 @@ featured=true
 source=paper-io-2.htm
 
 [game]
+available=false
 id=1.12.2
 title=Latest release
 version=1.12.2-u3
@@ -48,6 +132,7 @@ bundled=true
 source=Eaglercraft_1.12.2_u3_Offline.zip
 
 [game]
+available=false
 id=1.12.2-wasm
 title=Latest release WASM
 version=1.12.2-u3-wasm
@@ -61,6 +146,7 @@ wasm=true
 source=Eaglercraft_1.12.2_u3_WASM_Offline.zip
 
 [game]
+available=false
 id=1.8.8
 title=Previous release
 version=1.8.8-u53
@@ -73,6 +159,7 @@ bundled=true
 source=EaglercraftX_1.8_u53_Offline_Signed.zip
 
 [game]
+available=false
 id=1.8.8-wasm
 title=Previous release WASM
 version=1.8.8-u53-wasm
@@ -86,6 +173,7 @@ wasm=true
 source=EaglercraftX_1.8_u53_WASM-GC_Offline.zip
 
 [game]
+available=false
 id=1.5.2
 title=Older release
 version=1.5.2-sp2.01
@@ -98,6 +186,7 @@ bundled=true
 source=Eaglercraft_1.5.2-sp2.01_Offline.zip
 
 [game]
+available=false
 id=1.2.6
 title=Older release
 version=1.2.6-Alpha
@@ -110,6 +199,7 @@ bundled=true
 source=Eaglercraft_1.2.6-Alpha_Offline.zip
 
 [game]
+available=false
 id=Unknown-Alpha
 title=Older release
 version=Unknown-Alpha

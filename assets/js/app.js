@@ -1,116 +1,435 @@
-const ui = {
-  search: document.getElementById('searchInput'),
-  stats: document.getElementById('stats'),
-  folderGrid: document.getElementById('folderGrid'),
-  gameGrid: document.getElementById('gameGrid')
-};
-
-const TOP_COUNT = 10;
-const GAME_PLAYS_KEY = 'exst-game-plays';
-const FOLDER_PLAYS_KEY = 'exst-folder-plays';
-
-let arcade = { games: [], folders: [], byId: new Map() };
-
-function readCounts(key) {
-  try {
-    return JSON.parse(localStorage.getItem(key)) || {};
-  } catch (_) {
-    return {};
+/* Discovery dashboard. Game catalog stays editable in data/games.txt. */
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const escape = ExstArcade.escapeHtml;
+  function read(key, fallback) {
+    try {
+      return JSON.parse(localStorage.getItem(key)) ?? fallback;
+    } catch {
+      return fallback;
+    }
   }
-}
-
-function bumpCount(key, id) {
-  if (!id) return;
-  const counts = readCounts(key);
-  counts[id] = (counts[id] || 0) + 1;
-  localStorage.setItem(key, JSON.stringify(counts));
-}
-
-function topPlayed(items, key) {
-  const plays = readCounts(key);
-  return items
-    .map((item, index) => ({ item, index }))
-    .sort((a, b) =>
-      (plays[b.item.id] || 0) - (plays[a.item.id] || 0) ||
-      Number(Boolean(b.item.featured)) - Number(Boolean(a.item.featured)) ||
-      a.index - b.index)
-    .slice(0, TOP_COUNT)
-    .map((entry) => entry.item);
-}
-
-function renderGames(list) {
-  ui.gameGrid.innerHTML = '';
-  list.forEach((game) => {
-    const card = ExstArcade.createGameCard(game, { from: 'index.html' });
-    card.dataset.gameId = game.id;
-    ui.gameGrid.appendChild(card);
-  });
-  if (!list.length) ui.gameGrid.innerHTML = '<p class="empty-note">No games match that search. Try a tag, version, or title.</p>';
-}
-
-function renderFolders(list) {
-  ui.folderGrid.innerHTML = '';
-  list.forEach((folder, index) => {
-    const foundGames = folder.games.map((id) => arcade.byId.get(id)).filter(Boolean);
-    const card = document.createElement('a');
-    card.className = `folder-card folder-tone-${index % 4}`;
-    card.href = `folder.html?id=${encodeURIComponent(folder.id)}`;
-    card.dataset.folderId = folder.id;
-    card.innerHTML = `
-      <img src="${folder.icon}" alt="" loading="lazy" onerror="this.src='assets/images/folder.svg'" />
-      <span class="folder-label">${ExstArcade.escapeHtml(folder.title)}</span>
-      <strong>${foundGames.length} games</strong>
-      <p>${ExstArcade.escapeHtml(folder.description)}</p>`;
-    ui.folderGrid.appendChild(card);
-  });
-  if (!list.length) ui.folderGrid.innerHTML = '<p class="empty-note">No folders match that search.</p>';
-}
-
-function renderStats() {
-  const tags = new Set(arcade.games.flatMap((game) => game.tags || []));
-  ui.stats.innerHTML = `<span>${arcade.games.length} games</span><span>${arcade.folders.length} folders</span><span>${tags.size} tags</span>`;
-}
-
-function applySearch() {
-  const query = ui.search.value.trim().toLowerCase();
-  if (!query) {
-    renderGames(topPlayed(arcade.games, GAME_PLAYS_KEY));
-    renderFolders(topPlayed(arcade.folders, FOLDER_PLAYS_KEY));
-    return;
+  function save(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      toast("Your browser could not save this preference.");
+    }
   }
-  const matchedGames = arcade.games.filter((game) => [game.id, game.title, game.version, game.description, ...(game.tags || [])]
-    .join(' ')
-    .toLowerCase()
-    .includes(query));
-  const matchedFolders = arcade.folders.filter((folder) => [folder.id, folder.title, folder.description]
-    .join(' ')
-    .toLowerCase()
-    .includes(query));
-  renderGames(matchedGames);
-  renderFolders(matchedFolders);
-}
-
-function bindPlayTracking() {
-  ui.gameGrid.addEventListener('click', (event) => {
-    const card = event.target.closest('.game-card');
-    if (card && event.target.closest('a')) bumpCount(GAME_PLAYS_KEY, card.dataset.gameId);
+  let favorites = read("exst-favorites", []),
+    recent = read("exst-recent", []),
+    plays = read("exst-game-plays", {});
+  if (!Array.isArray(favorites)) favorites = [];
+  if (!Array.isArray(recent)) recent = [];
+  if (!plays || typeof plays !== "object") plays = {};
+  let data,
+    view = "discover",
+    category = "All",
+    query = "",
+    sort = "popular",
+    slide = 0;
+  let toastTimer;
+  const slides = [
+    {
+      id: "neon-drift",
+      title: "Neon Drift",
+      genre: "RACING",
+      image: "assets/images/neon-drift-hero.webp",
+      description:
+        "Own the night. Chase the rush.<br>The city is your playground.",
+      alt: "Silver sports car on a neon-lit city street",
+    },
+    {
+      id: "cosmic-escape",
+      title: "Cosmic Escape",
+      genre: "ADVENTURE",
+      image: "assets/images/cosmic-escape.webp",
+      description: "A universe of possibility.<br>One mission: keep flying.",
+      alt: "Spaceship navigating a purple asteroid belt",
+    },
+    {
+      id: "brick-breaker",
+      title: "Brick Breaker",
+      genre: "ARCADE",
+      image: "assets/images/brick-breaker.webp",
+      description:
+        "A classic, with a little extra glow.<br>Make every bounce count.",
+      alt: "Glowing arcade bricks in blue and coral",
+    },
+  ];
+  function toast(message) {
+    $("toast").textContent = message;
+    $("toast").classList.add("visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $("toast").classList.remove("visible"), 2500);
+  }
+  function isAvailable(game) {
+    return game.available !== false && game.available !== "false";
+  }
+  function setFavorite(id) {
+    const game = data.byId.get(id);
+    if (!game) return;
+    const exists = favorites.includes(id);
+    favorites = exists ? favorites.filter((x) => x !== id) : [...favorites, id];
+    save("exst-favorites", favorites);
+    toast(
+      exists
+        ? `${game.title} removed from favorites`
+        : `${game.title} added to your favorites`,
+    );
+    render();
+  }
+  function play(id, event) {
+    const game = data.byId.get(id);
+    if (!game) return;
+    if (!isAvailable(game)) {
+      showInfo(
+        "This game needs its files",
+        `<p>${escape(game.title)} is a starter entry in your editable library. Its playable build hasn’t been added yet.</p><p>Add your licensed game files at <code>${escape(game.path)}</code>, then set <code>available=true</code> in <code>data/games.txt</code>.</p><p>In the meantime, all six Arcade Originals are ready to play.</p><button class="primary-button" id="tryOriginal">Try an arcade original ${icon("arrow-right")}</button>`,
+      );
+      $("tryOriginal").onclick = () => {
+        $("infoDialog").close();
+        play("neon-snake");
+      };
+      return;
+    }
+    plays[id] = (Number(plays[id]) || 0) + 1;
+    save("exst-game-plays", plays);
+    recent = [id, ...recent.filter((x) => x !== id)].slice(0, 30);
+    save("exst-recent", recent);
+    const mode = ExstArcade.getOpenMode();
+    const url = ExstArcade.gameUrl(game, mode);
+    if (mode === "new" || event?.ctrlKey || event?.metaKey)
+      window.open(url, "_blank", "noopener");
+    else location.href = url;
+  }
+  function gameCard(game) {
+    const saved = favorites.includes(game.id),
+      available = isAvailable(game),
+      tags = game.tags
+        .filter((t) => !["featured", "quick play"].includes(t))
+        .slice(0, 2);
+    let badge = available ? game.badge : "SETUP NEEDED";
+    const best = read(`exst-best-${game.id}`, 0);
+    return `<article class="arcade-game-card col-md-4"><div class="game-cover"><a href="${escape(ExstArcade.gameUrl(game))}" data-play="${escape(game.id)}" aria-label="Play ${escape(game.title)}"><img src="${escape(game.icon)}" alt="${escape(game.title)} game artwork" loading="lazy"><span class="cover-play">${icon("play")}</span></a>${badge ? `<span class="game-badge ${badge === "NEW" ? "new" : ""}">${icon(badge === "HOT" ? "flame" : badge === "NEW" ? "zap" : "star")}${escape(badge)}</span>` : ""}<button class="favorite-button ${saved ? "saved" : ""}" data-favorite="${escape(game.id)}" aria-label="${saved ? "Remove" : "Add"} ${escape(game.title)} ${saved ? "from" : "to"} favorites" aria-pressed="${saved}">${icon("heart")}</button></div><div class="card-body"><div class="card-title-row"><h3><a href="${escape(ExstArcade.gameUrl(game))}" data-play="${escape(game.id)}">${escape(game.title)}</a></h3><span class="card-rating" title="${best ? "Your best score" : "Free to play"}">${icon(best ? "trophy" : "zap")}${best ? escape(best) : "Free"}</span></div><p>${escape(game.description)}</p><div class="card-bottom"><span class="card-tags">${tags.map((t) => `<span>${escape(t.charAt(0).toUpperCase() + t.slice(1))}</span>`).join("")}</span><a class="card-play" href="${escape(ExstArcade.gameUrl(game))}" data-play="${escape(game.id)}">${available ? "Play now" : "Set up"} ${icon("arrow-up-right")}</a></div></div></article>`;
+  }
+  function render() {
+    if (!data) return;
+    const titles = {
+      discover: [
+        "Good times start here",
+        "Take a break. Find your game. Make a new high score.",
+        "Find your next obsession",
+      ],
+      all: [
+        "Your next favorite is here",
+        "Explore the whole collection. There’s a game for every kind of day.",
+        "All games",
+      ],
+      recent: [
+        "Welcome back to the fun",
+        "Pick up where you left off. Your recent adventures are right here.",
+        "Recently played",
+      ],
+      favorites: [
+        "All your favorites. One place",
+        "The games you love, ready whenever you are.",
+        "My favorites",
+      ],
+    };
+    const names = {
+      discover: "Discover",
+      all: "All games",
+      recent: "Recently played",
+      favorites: "My favorites",
+    };
+    const info = titles[view];
+    $("pageHeading").innerHTML = `${info[0]}<span>.</span>`;
+    $("pageSubtitle").textContent = info[1];
+    $("breadcrumb").textContent = names[view];
+    $("favoriteCount").textContent = favorites.length;
+    $("allCount").textContent = data.games.length;
+    const discovery = view === "discover" && !query && category === "All";
+    $("discoveryContent").hidden = !discovery;
+    $("collections").hidden = !discovery;
+    $("gridHeading").textContent = query
+      ? `Results for “${query}”`
+      : category !== "All"
+        ? `${category} games`
+        : info[2];
+    $("gridSubtitle").textContent = query
+      ? "A little searching. A lot of playing."
+      : view === "all"
+        ? "Six ready-to-play originals, plus your editable game library."
+        : view === "favorites"
+          ? "Hit the heart on any game to keep it close."
+          : view === "recent"
+            ? "Your most recent games, saved on this device."
+            : "Big adventures and little distractions. There’s something for everyone.";
+    $("viewAll").hidden = view === "all";
+    document.querySelectorAll("#mainNav [data-view]").forEach((b) => {
+      b.classList.toggle("active", b.dataset.view === view);
+      b.setAttribute(
+        "aria-current",
+        b.dataset.view === view ? "page" : "false",
+      );
+    });
+    document
+      .querySelectorAll("[data-category]")
+      .forEach((b) =>
+        b.classList.toggle("active", b.dataset.category === category),
+      );
+    document.querySelectorAll("[data-filter]").forEach((b) => {
+      const active = b.dataset.filter === category;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-pressed", active);
+    });
+    let games = data.games.filter((game) => {
+      if (view === "favorites" && !favorites.includes(game.id)) return false;
+      if (view === "recent" && !recent.includes(game.id)) return false;
+      if (view === "discover" && !isAvailable(game)) return false;
+      if (
+        category !== "All" &&
+        !game.tags.some((t) => t.toLowerCase() === category.toLowerCase())
+      )
+        return false;
+      if (
+        query &&
+        !`${game.title} ${game.description} ${game.tags.join(" ")}`
+          .toLowerCase()
+          .includes(query.toLowerCase())
+      )
+        return false;
+      return true;
+    });
+    if (sort === "az") games.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sort === "played")
+      games.sort((a, b) => (plays[b.id] || 0) - (plays[a.id] || 0));
+    else if (sort === "newest")
+      games.sort(
+        (a, b) => Number(b.badge === "NEW") - Number(a.badge === "NEW"),
+      );
+    else if (view === "recent")
+      games.sort((a, b) => recent.indexOf(a.id) - recent.indexOf(b.id));
+    $("gameGrid").innerHTML =
+      games.map(gameCard).join("") ||
+      `<div class="empty-state">${icon(view === "favorites" ? "heart" : view === "recent" ? "clock" : "search")}<h3>${query ? "No games found" : view === "favorites" ? "Your favorites start here" : view === "recent" ? "Your next adventure awaits" : "More adventures are on the way"}</h3><p>${query ? "Try another title or choose a different category." : view === "favorites" ? "Tap the heart on a game to add it to your own little arcade." : view === "recent" ? "Play any game and it will appear here, ready for another round." : "Try another category to find something to play."}</p><button class="primary-button" data-view="discover">Explore games ${icon("arrow-right")}</button></div>`;
+    document.querySelectorAll(".hero-heart").forEach((b) => {
+      const saved = favorites.includes(b.dataset.favorite);
+      b.classList.toggle("saved", saved);
+      b.setAttribute("aria-pressed", saved);
+      b.setAttribute(
+        "aria-label",
+        `${saved ? "Remove" : "Add"} ${data.byId.get(b.dataset.favorite)?.title} ${saved ? "from" : "to"} favorites`,
+      );
+    });
+    $("gameGrid")
+      .querySelectorAll("img")
+      .forEach((img) => {
+        img.onerror = () => {
+          img.onerror = null;
+          img.src = "assets/images/default-game.svg";
+        };
+      });
+  }
+  function navigate(next, cat = "All") {
+    view = next;
+    category = cat;
+    query = "";
+    $("searchInput").value = "";
+    const params = new URLSearchParams();
+    if (view !== "discover") params.set("view", view);
+    if (category !== "All") params.set("category", category);
+    history.pushState(
+      {},
+      "",
+      location.pathname + (params.size ? "?" + params : ""),
+    );
+    $("sidebar").classList.remove("open");
+    $("menuToggle").setAttribute("aria-expanded", "false");
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function showInfo(title, content) {
+    $("dialogTitle").textContent = title;
+    $("dialogContent").innerHTML = content;
+    $("infoDialog").showModal();
+  }
+  function setSlide(index) {
+    slide = index;
+    const item = slides[index];
+    const hero = document.querySelector(".hero-feature");
+    hero.querySelector(".hero-art").src = item.image;
+    hero.querySelector(".hero-art").alt = item.alt;
+    hero.querySelector("h2").textContent = item.title;
+    hero.querySelector(".hero-copy p").innerHTML = item.description;
+    hero.querySelector(".hero-genre").innerHTML =
+      `${item.genre} <span>•</span> ARCADE ORIGINAL`;
+    hero.querySelector("[data-play]").dataset.play = item.id;
+    hero.querySelector("[data-favorite]").dataset.favorite = item.id;
+    hero.querySelector(".hero-pagination>span").innerHTML =
+      `0${index + 1} <small>/ 03</small>`;
+    hero.querySelectorAll("[data-slide]").forEach((b) => {
+      b.classList.toggle("selected", Number(b.dataset.slide) === slide);
+      b.setAttribute("aria-pressed", Number(b.dataset.slide) === slide);
+    });
+    render();
+  }
+  document.addEventListener("click", (e) => {
+    const favorite = e.target.closest("[data-favorite]");
+    if (favorite) {
+      e.preventDefault();
+      setFavorite(favorite.dataset.favorite);
+      return;
+    }
+    const launch = e.target.closest("[data-play]");
+    if (launch) {
+      e.preventDefault();
+      play(launch.dataset.play, e);
+      return;
+    }
+    const nav = e.target.closest("[data-view]");
+    if (nav) {
+      navigate(nav.dataset.view);
+      return;
+    }
+    const cat = e.target.closest("[data-category]");
+    if (cat) {
+      navigate("all", cat.dataset.category);
+      return;
+    }
+    const filter = e.target.closest("[data-filter]");
+    if (filter) {
+      category = filter.dataset.filter;
+      render();
+      return;
+    }
+    const carousel = e.target.closest("[data-slide]");
+    if (carousel) {
+      setSlide(Number(carousel.dataset.slide));
+      return;
+    }
+    const collection = e.target.closest("[data-collection]");
+    if (collection) {
+      navigate(
+        "all",
+        collection.dataset.collection === "puzzle"
+          ? "Puzzle"
+          : collection.dataset.collection === "quick"
+            ? "Arcade"
+            : "Action",
+      );
+      return;
+    }
+    if (
+      $("sidebar").classList.contains("open") &&
+      !e.target.closest("#sidebar,#menuToggle")
+    ) {
+      $("sidebar").classList.remove("open");
+      $("menuToggle").setAttribute("aria-expanded", "false");
+    }
   });
-  ui.folderGrid.addEventListener('click', (event) => {
-    const card = event.target.closest('.folder-card');
-    if (card) bumpCount(FOLDER_PLAYS_KEY, card.dataset.folderId);
+  $("searchInput").addEventListener("input", (e) => {
+    query = e.target.value.trim();
+    render();
   });
-}
-
-async function boot() {
-  ExstArcade.bindOpenModeSelect();
-  arcade = await ExstArcade.loadArcadeData();
-  renderStats();
-  applySearch();
-  bindPlayTracking();
-  ui.search.addEventListener('input', applySearch);
-  document.getElementById('openMode')?.addEventListener('change', applySearch);
-}
-
-boot().catch((error) => {
-  document.body.insertAdjacentHTML('afterbegin', `<div class="config-error"><strong>Could not load arcade data.</strong><br>${ExstArcade.escapeHtml(error.message)}</div>`);
-});
+  $("sortSelect").addEventListener("change", (e) => {
+    sort = e.target.value;
+    render();
+  });
+  $("viewAll").onclick = () => navigate("all");
+  $("randomGame").onclick = () => {
+    if (!data) return;
+    const games = data.games.filter(isAvailable);
+    if (games.length) play(games[Math.floor(Math.random() * games.length)].id);
+  };
+  $("menuToggle").onclick = () => {
+    const open = $("sidebar").classList.toggle("open");
+    $("menuToggle").setAttribute("aria-expanded", open);
+  };
+  $("settingsButton").onclick = () => {
+    showInfo(
+      "Make yourself at home",
+      `<p>Your arcade, your rules. Preferences are saved on this device.</p><label for="openMode">When I play a game</label><select id="openMode"><option value="page">Open in the arcade player</option><option value="same">Open game in this tab</option><option value="new">Open game in a new tab</option></select><p>Keyboard tip: press <kbd>/</kbd> to find a game instantly.</p><button class="primary-button" id="savePreferences">Done ${icon("check")}</button>`,
+    );
+    ExstArcade.bindOpenModeSelect();
+    $("savePreferences").onclick = () => {
+      $("infoDialog").close();
+      toast("Your preferences are saved.");
+    };
+  };
+  $("foldersButton").onclick = () => {
+    if (!data) return;
+    showInfo(
+      "Your game collections",
+      `<p>Handpicked folders from your editable arcade library.</p><div class="folder-links">${data.folders.map((folder) => `<a href="folder.html?id=${encodeURIComponent(folder.id)}"><span>${icon("folder")} ${escape(folder.title)}</span><small>${folder.games.length} games ${icon("arrow-right")}</small></a>`).join("")}</div>`,
+    );
+  };
+  $("newsButton").onclick = () =>
+    showInfo(
+      "Fresh from the arcade",
+      `<span class="daily-chip">THE ORIGINALS ARE HERE</span><h3>Six little escapes. Zero downloads.</h3><p>Meet Neon Drift, Neon Snake, 2048, Cosmic Escape, Memory Match, and Brick Breaker. Each one is built into your arcade and ready to play.</p><h3>A home for your favorites</h3><p>Tap the heart on a game to save it. Your favorites, recent games, and high scores stay on this device.</p>`,
+    );
+  $("profileButton").onclick = () =>
+    showInfo(
+      "Hey, Player One.",
+      `<p>This is your little corner of the arcade. No account needed — just you and your next high score.</p><div class="profile-stats"><div><strong>${recent.length}</strong><span>Games tried</span></div><div><strong>${Object.values(plays).reduce((a, b) => a + (Number(b) || 0), 0)}</strong><span>Total plays</span></div><div><strong>${favorites.length}</strong><span>Favorites</span></div></div><p>Progress is stored locally in this browser. Clear your browser data and your arcade gets a fresh start.</p>`,
+    );
+  $("aboutButton").onclick = () =>
+    showInfo(
+      "A little less scrolling.",
+      `<p>A little more playing. Exst Arcade is a free, lightweight home for browser games — no accounts, subscriptions, or downloads required.</p><h3>Made for a quick escape</h3><p>Six original minigames are included. Keep building your collection by editing <code>data/games.txt</code> and adding your own game files.</p><p>Based on the <a href="https://github.com/learning-zone/website-templates/tree/master/hybrid-bootstrap-admin-template" target="_blank" rel="noopener">Hybrid Bootstrap Admin Template</a> by <a href="https://webthemez.com/" target="_blank" rel="noopener">WebThemez</a>, licensed under Creative Commons Attribution 3.0. Game artwork is AI-generated.</p>`,
+    );
+  $("closeDialog").onclick = () => $("infoDialog").close();
+  $("infoDialog").addEventListener("click", (e) => {
+    if (e.target === $("infoDialog")) {
+      const r = e.target.getBoundingClientRect();
+      if (
+        e.clientX < r.left ||
+        e.clientX > r.right ||
+        e.clientY < r.top ||
+        e.clientY > r.bottom
+      )
+        e.target.close();
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (
+      e.key === "/" &&
+      !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) &&
+      !$("infoDialog").open
+    ) {
+      e.preventDefault();
+      $("searchInput").focus();
+    }
+    if (e.key === "Escape") {
+      $("sidebar").classList.remove("open");
+      $("menuToggle").setAttribute("aria-expanded", "false");
+    }
+  });
+  function restoreRoute() {
+    const p = new URLSearchParams(location.search);
+    view = ["all", "recent", "favorites"].includes(p.get("view"))
+      ? p.get("view")
+      : "discover";
+    category = ["Action", "Adventure", "Racing", "Puzzle", "Arcade"].includes(
+      p.get("category"),
+    )
+      ? p.get("category")
+      : "All";
+    query = "";
+    $("searchInput").value = "";
+    render();
+  }
+  window.addEventListener("popstate", restoreRoute);
+  ExstArcade.loadArcadeData()
+    .then((result) => {
+      data = result;
+      restoreRoute();
+    })
+    .catch((error) => {
+      $("gameGrid").innerHTML =
+        `<div class="empty-state"><h3>The arcade couldn’t load</h3><p>${escape(error.message)}. Please serve this site over HTTP and try again.</p><button class="primary-button" onclick="location.reload()">Try again</button></div>`;
+    });
+})();

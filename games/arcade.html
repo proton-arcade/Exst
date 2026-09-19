@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#111216" />
+    <title>Arcade Original — Exst</title>
+    <link rel="icon" href="../assets/images/favicon.svg" />
+    <link rel="stylesheet" href="../assets/css/minigames.css" />
+  </head>
+  <body>
+    <main class="original-game">
+      <div class="game-heading">
+        <div>
+          <a class="eyebrow" href="../index.html" target="_top"
+            >EXST ORIGINALS</a
+          >
+          <h1 id="title">Arcade</h1>
+        </div>
+        <div class="scoreboard">
+          <div>
+            <span id="scoreLabel">SCORE</span><strong id="score">0</strong>
+          </div>
+          <div><span>BEST</span><strong id="best">0</strong></div>
+        </div>
+      </div>
+      <div class="play-area" id="playArea">
+        <canvas
+          id="canvas"
+          width="720"
+          height="450"
+          aria-label="Interactive game area"
+        ></canvas>
+        <div
+          id="board2048"
+          class="board-2048"
+          hidden
+          aria-label="2048 game board"
+        ></div>
+        <div
+          id="memoryBoard"
+          class="memory-board"
+          hidden
+          aria-label="Memory match game board"
+        ></div>
+        <div class="game-overlay" id="overlay">
+          <div class="overlay-symbol" id="overlaySymbol">↗</div>
+          <p class="eyebrow">A LITTLE ESCAPE. A LOT OF FUN.</p>
+          <h2 id="overlayTitle"></h2>
+          <p id="instructions"></p>
+          <button id="startButton">Let’s play <span>→</span></button
+          ><span class="overlay-tip" id="overlayTip"></span>
+        </div>
+      </div>
+      <div class="game-toolbar">
+        <p id="controlHint"></p>
+        <div>
+          <button id="pauseButton" disabled>Ⅱ Pause</button
+          ><button id="restartButton">↻ Restart</button>
+        </div>
+      </div>
+      <div id="touchControls" class="touch-controls">
+        <button data-direction="left" aria-label="Move left">←</button
+        ><button data-direction="up" aria-label="Move up">↑</button
+        ><button data-direction="down" aria-label="Move down">↓</button
+        ><button data-direction="right" aria-label="Move right">→</button>
+      </div>
+      <p class="game-note" id="gameNote">
+        Your best score is saved on this device. Make it a good one.
+      </p>
+      <div id="announcer" class="sr-only" aria-live="polite"></div>
+    </main>
+    <script src="../assets/js/minigames.js"></script>
+  </body>
+</html>
