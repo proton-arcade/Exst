@@ -1,0 +1,6 @@
+[folder]
+id=arcade
+title=Fast arcade rounds
+description=Quick games that make sense when someone just wants to jump in for a few minutes.
+icon=assets/images/paper-io-2.svg
+games=paper-io-2
