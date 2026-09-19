@@ -56,6 +56,20 @@
     return asset(HERO_ART[game.id] || game.icon);
   }
 
+  /** Artwork that is used when a game's own image cannot be loaded. */
+  const DEFAULT_ART = asset("assets/images/default-game.svg");
+
+  /**
+   * Two stacked background layers: the game's artwork, then the default
+   * artwork underneath. A typo in an icon path shows the default art instead
+   * of an empty poster, so it never just silently disappears.
+   */
+  function artLayers(...paths) {
+    return [...paths, DEFAULT_ART]
+      .map((item) => `url('${escape(String(item))}')`)
+      .join(",");
+  }
+
   /** Deterministic 7.5–9.8 rating so the details page has a "Vote" line. */
   function ratingFor(game) {
     let hash = 0;
@@ -124,7 +138,7 @@
     return (
       `<div class="movie">` +
       `<button class="item${available ? "" : " is-setup"}" data-details="${escape(game.id)}" ` +
-      `style="background-image:url('${escape(asset(game.icon))}')" ` +
+      `style="background-image:${artLayers(asset(game.icon))}" ` +
       `aria-label="${available ? "View" : "Set up"} ${escape(game.title)}" title="${escape(game.title)}">` +
       (badge
         ? `<span class="item-badge${available ? "" : " setup"}${
@@ -161,7 +175,7 @@
   function syncHero() {
     const game = heroSlides[heroIndex];
     if (!game) return;
-    $("heroCover").style.backgroundImage = `url('${heroArt(game)}')`;
+    $("heroCover").style.backgroundImage = artLayers(heroArt(game));
     $("heroKicker").textContent = `${(game.version || game.id).toUpperCase()} • IN THE SPOTLIGHT`;
     $("heroTitle").textContent = game.title;
     $("heroMeta").innerHTML =
@@ -418,7 +432,7 @@
       return;
     }
     detailsId = id;
-    $("detailsCover").style.backgroundImage = `url('${heroArt(game)}')`;
+    $("detailsCover").style.backgroundImage = artLayers(heroArt(game));
     $("detailsTitle").textContent = game.title;
     $("detailsHeadTitle").textContent = game.title;
     $("detailsOverview").textContent =

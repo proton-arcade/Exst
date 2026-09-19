@@ -5,7 +5,7 @@
   "description": "A file://-friendly browser arcade: open ../index.html and play. Add games by dropping files into games/ and adding one catalog block.",
   "scripts": {
     "start": "python3 -m http.server 3000 --bind 0.0.0.0 --directory ..",
-    "test": "node --test tests/catalog.test.cjs",
+    "test": "node --test tests/catalog.test.cjs tests/structure.test.cjs",
     "test:browser": "node tests/browser.cjs"
   },
   "devDependencies": {

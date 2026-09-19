@@ -218,15 +218,17 @@ over http(s), makes saving work again.
 ```sh
 cd website
 npm install
-npm test                        # catalog parsing, IDs, files, references, URL rules
+npm test                        # catalog + structure: parsing, IDs, files,
+                                # references, URL rules, script order, orphans
 npm start                       # in a second terminal, for the browser suite
 npm run test:browser            # Playwright: dashboard, player, all six games,
                                 # collections, mobile widths, plus a no-server
                                 # file:// smoke test
 ```
 
-The Node tests validate catalog parsing, unique IDs, file existence, folder
-references, URL building, escaping, and the catalog safety net: a block
+The Node tests are split in two. **`catalog.test.cjs`** validates catalog
+parsing, unique IDs, file existence, folder references, URL building,
+escaping, and the catalog safety net: a block
 pasted without its `[game]` header becomes its own entry, duplicate ids and
 unknown folder references are reported with file and line, and an unreadable
 `games.js` throws an explained error instead of rendering an empty arcade.
@@ -241,6 +243,14 @@ kept), mobile
 navigation, horizontal overflow at four widths, and opening the whole site
 over `file://` with no server. Screenshots are written to the ignored
 `.test-artifacts/` directory.
+
+**`structure.test.cjs`** guards the things a build step would normally catch:
+every local file a page references exists, each page loads its scripts in a
+working order (catalog, then loader, then page code), page scripts only look
+for elements that are really on that page, no script or stylesheet is left
+unreferenced, the loader still exports the API the pages use, and the game
+artwork always has a default layer behind it so a wrong icon path shows the
+default art instead of an empty tile.
 
 ## Attribution
 
