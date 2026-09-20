@@ -761,13 +761,7 @@ hero=true`;
 
   function syncHeader() {
     const bar = $("headerBar");
-    if (currentPage !== 0) {
-      bar.style.backgroundColor = "rgba(18,18,18,1)";
-      return;
-    }
-    const h = window.innerHeight || 800;
-    const alpha = Math.min(1, Math.max(0, window.scrollY / (h * 0.6)));
-    bar.style.backgroundColor = `rgba(18,18,18,${alpha.toFixed(2)})`;
+    bar.style.backgroundColor = "var(--flix-bar)";
   }
 
   function routeFromHash() {

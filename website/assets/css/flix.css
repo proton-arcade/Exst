@@ -94,8 +94,7 @@ body.flix .icon {
   right: 0;
   height: auto;
   z-index: 100;
-  background-color: rgba(18, 18, 18, 0);
-  transition: background-color 150ms ease;
+  background-color: var(--flix-bar);
 }
 
 #headerBar .header {
